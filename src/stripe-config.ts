@@ -1,0 +1,68 @@
+export const products = {
+  enterprise: {
+    name: 'Enterprise AI',
+    description: 'Unlimited AI-powered content generation and automation for large teams',
+    priceId: 'price_1RM9t6076YhLgNaKwoeQTLI4',
+    mode: 'subscription',
+    features: [
+      'Unlimited AI content generation',
+      'Advanced automation workflows',
+      'Priority support',
+      'Custom integrations',
+      'Team collaboration tools',
+      'Advanced analytics',
+      'Dedicated account manager',
+      'Custom training and onboarding',
+    ],
+    price: 5000,
+  },
+  agency: {
+    name: 'Agency Elite',
+    description: 'Powerful tools for agencies managing multiple client accounts',
+    priceId: 'price_1RM9so076YhLgNaKPOOXIZuE',
+    mode: 'subscription',
+    features: [
+      'Manage up to 25 client accounts',
+      'White-label reports',
+      'Client collaboration tools',
+      'Advanced scheduling',
+      'Custom templates',
+      'Priority support',
+      'Team training sessions',
+    ],
+    price: 2500,
+  },
+  growth: {
+    name: 'Growth Studio',
+    description: 'Perfect for growing businesses and marketing teams',
+    priceId: 'price_1RM9sU076YhLgNaKdq540rTf',
+    mode: 'subscription',
+    features: [
+      'Up to 10 team members',
+      'Advanced content generation',
+      'Social media automation',
+      'Analytics dashboard',
+      'Content calendar',
+      'Email support',
+      'Integration with major platforms',
+    ],
+    price: 999,
+  },
+  creator: {
+    name: 'Creator Pro',
+    description: 'Essential tools for content creators and small teams',
+    priceId: 'price_1RM9sH076YhLgNaK6hDNxQ4Z',
+    mode: 'subscription',
+    features: [
+      'Up to 3 team members',
+      'Content generation',
+      'Basic automation',
+      'Analytics',
+      'Content calendar',
+      'Email support',
+    ],
+    price: 499,
+  },
+} as const;
+
+export type ProductId = keyof typeof products;
