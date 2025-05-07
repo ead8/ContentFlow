@@ -1,0 +1,112 @@
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Settings, Users, AlertCircle } from "lucide-react"
+import Link from "next/link"
+
+export function AccountSummary() {
+  const connectedPlatforms = [
+    {
+      name: "LinkedIn",
+      status: "connected",
+      profile: "John Doe",
+      lastSync: "2 hours ago"
+    },
+    {
+      name: "Instagram",
+      status: "connected",
+      profile: "@johndoe",
+      lastSync: "1 hour ago"
+    },
+    {
+      name: "Twitter",
+      status: "disconnected",
+      profile: null,
+      lastSync: null
+    }
+  ]
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Account Overview</CardTitle>
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/settings">
+            <Settings className="h-4 w-4" />
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <h4 className="text-sm font-medium mb-3">Connected Platforms</h4>
+          <div className="space-y-2">
+            {connectedPlatforms.map((platform) => (
+              <div
+                key={platform.name}
+                className="flex items-center justify-between p-2 rounded-md border"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    {platform.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{platform.name}</p>
+                    {platform.status === "connected" ? (
+                      <p className="text-xs text-muted-foreground">
+                        {platform.profile} • {platform.lastSync}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Not connected
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  variant={platform.status === "connected" ? "default" : "secondary"}
+                >
+                  {platform.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">Team Members</h4>
+            <Button variant="ghost" size="sm">
+              <Users className="h-4 w-4 mr-2" />
+              Invite
+            </Button>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 p-2 rounded-md border">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                JD
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">John Doe</p>
+                <p className="text-xs text-muted-foreground">Owner</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="rounded-md bg-yellow-500/10 p-3 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-yellow-500">
+              Upgrade Available
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Unlock more features with our Pro plan
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
