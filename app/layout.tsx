@@ -5,7 +5,6 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/components/auth-provider'
 
-// Configure Inter font with fallbacks and optimization settings
 const inter = Inter({ 
   subsets: ['latin'],
   variable: '--font-inter',
@@ -13,7 +12,7 @@ const inter = Inter({
   preload: true,
   fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
   weight: ['400', '500', '700'],
-  adjustFontFallback: true,
+  adjustFontFallback: false,
 })
 
 export const metadata: Metadata = {
@@ -28,13 +27,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"

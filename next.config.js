@@ -5,7 +5,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
-  optimizeFonts: false, // Disable Next.js font optimization
+  optimizeFonts: false,
   experimental: {
     optimizePackageImports: ['@/components/ui'],
   },
