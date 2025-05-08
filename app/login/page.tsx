@@ -41,7 +41,7 @@ export default function LoginPage() {
       
       toast({
         title: "Welcome back!",
-        description: "You've successfully logged in.",
+        description: "You&apos;ve successfully logged in.",
       })
       router.push("/dashboard")
     } catch (error: any) {
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   </div>
                   <h3 className="text-xl font-medium">Check your email</h3>
                   <p className="text-muted-foreground">
-                    We've sent a magic link to {magicLinkEmail}. Click the link in your email to sign in.
+                    We&apos;ve sent a magic link to {magicLinkEmail}. Click the link in your email to sign in.
                   </p>
                   <Button 
                     variant="outline" 
@@ -204,7 +204,7 @@ export default function LoginPage() {
           </Tabs>
           
           <div className="text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account?</span>{" "}
+            <span className="text-muted-foreground">Don&apos;t have an account?</span>{" "}
             <Link href="/signup" className="text-primary hover:underline">
               Sign up
             </Link>

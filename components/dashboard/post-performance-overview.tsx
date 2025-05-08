@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { Calendar, ThumbsUp, MessageSquare, Users, ExternalLink } from "lucide-react"
 import { fetchPostPerformance } from "@/lib/n8n/client"
+import Image from "next/image"
 
 interface PostEngagement {
   likes: number;
@@ -58,11 +59,12 @@ export function PostPerformanceOverview() {
           <TabsContent value="recent" className="space-y-4">
             {posts.map((post) => (
               <div key={post.id} className="flex items-center gap-4 p-4 rounded-lg border">
-                <div className="w-20 h-20 rounded-md overflow-hidden">
-                  <img 
+                <div className="relative w-20 h-20 rounded-md overflow-hidden">
+                  <Image 
                     src={post.thumbnail} 
-                    alt={post.title}
-                    className="w-full h-full object-cover"
+                    alt={`Thumbnail for ${post.title}`}
+                    fill
+                    className="object-cover"
                   />
                 </div>
                 <div className="flex-1 min-w-0">

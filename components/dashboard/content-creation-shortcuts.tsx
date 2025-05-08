@@ -2,8 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { PencilLine, Image, Video, Copy, Calendar } from "lucide-react"
+import { PencilLine, Image as ImageIcon, Video, Copy, Calendar } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 export function ContentCreationShortcuts() {
   const templates = [
@@ -68,7 +69,7 @@ export function ContentCreationShortcuts() {
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" asChild>
             <Link href="/media">
-              <Image className="mr-2 h-4 w-4" />
+              <ImageIcon className="mr-2 h-4 w-4" />
               Media Library
             </Link>
           </Button>
