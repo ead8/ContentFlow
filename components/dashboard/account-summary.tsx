@@ -1,32 +1,35 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Settings, Users, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { fetchAccountSummary } from "@/lib/n8n/client"
 
 export function AccountSummary() {
-  const connectedPlatforms = [
-    {
-      name: "LinkedIn",
-      status: "connected",
-      profile: "John Doe",
-      lastSync: "2 hours ago"
-    },
-    {
-      name: "Instagram",
-      status: "connected",
-      profile: "@johndoe",
-      lastSync: "1 hour ago"
-    },
-    {
-      name: "Twitter",
-      status: "disconnected",
-      profile: null,
-      lastSync: null
+  const [accountData, setAccountData] = useState({
+    platforms: [],
+    teamMembers: [],
+    subscription: {}
+  })
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadAccountData() {
+      try {
+        const data = await fetchAccountSummary()
+        setAccountData(data)
+      } catch (error) {
+        console.error('Failed to load account summary:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  ]
+
+    loadAccountData()
+  }, [])
 
   return (
     <Card>
@@ -42,7 +45,7 @@ export function AccountSummary() {
         <div>
           <h4 className="text-sm font-medium mb-3">Connected Platforms</h4>
           <div className="space-y-2">
-            {connectedPlatforms.map((platform) => (
+            {accountData.platforms.map((platform) => (
               <div
                 key={platform.name}
                 className="flex items-center justify-between p-2 rounded-md border"
@@ -83,29 +86,33 @@ export function AccountSummary() {
             </Button>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2 rounded-md border">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                JD
+            {accountData.teamMembers.map((member) => (
+              <div key={member.id} className="flex items-center gap-2 p-2 rounded-md border">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  {member.initials}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">{member.role}</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-muted-foreground">Owner</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
         
-        <div className="rounded-md bg-yellow-500/10 p-3 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-yellow-500">
-              Upgrade Available
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Unlock more features with our Pro plan
-            </p>
+        {accountData.subscription?.upgradeAvailable && (
+          <div className="rounded-md bg-yellow-500/10 p-3 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-500">
+                Upgrade Available
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Unlock more features with our Pro plan
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )

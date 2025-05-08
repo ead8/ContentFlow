@@ -1,48 +1,31 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { Calendar, ThumbsUp, MessageSquare, Users, ExternalLink } from "lucide-react"
+import { fetchPostPerformance } from "@/lib/n8n/client"
 
 export function PostPerformanceOverview() {
-  const recentPosts = [
-    {
-      id: 1,
-      platform: "linkedin",
-      title: "Announcing our latest AI feature release",
-      status: "posted",
-      date: new Date(),
-      engagement: {
-        likes: 245,
-        comments: 32,
-        reach: 12500
-      },
-      thumbnail: "https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg"
-    },
-    {
-      id: 2,
-      platform: "instagram",
-      title: "Behind the scenes at our office",
-      status: "scheduled",
-      date: new Date(Date.now() + 86400000),
-      thumbnail: "https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg"
-    },
-    {
-      id: 3,
-      platform: "twitter",
-      title: "Quick tip about productivity",
-      status: "draft",
-      date: new Date(Date.now() - 86400000),
-      engagement: {
-        likes: 89,
-        comments: 12,
-        reach: 3400
-      },
-      thumbnail: "https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg"
+  const [posts, setPosts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadPosts() {
+      try {
+        const data = await fetchPostPerformance()
+        setPosts(data)
+      } catch (error) {
+        console.error('Failed to load post performance:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  ]
+
+    loadPosts()
+  }, [])
 
   return (
     <Card className="col-span-2">
@@ -57,7 +40,7 @@ export function PostPerformanceOverview() {
           </TabsList>
           
           <TabsContent value="recent" className="space-y-4">
-            {recentPosts.map((post) => (
+            {posts.map((post) => (
               <div key={post.id} className="flex items-center gap-4 p-4 rounded-lg border">
                 <div className="w-20 h-20 rounded-md overflow-hidden">
                   <img 
@@ -83,7 +66,7 @@ export function PostPerformanceOverview() {
                   <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      {format(post.date, "MMM d, yyyy")}
+                      {format(new Date(post.date), "MMM d, yyyy")}
                     </div>
                     {post.engagement && (
                       <>

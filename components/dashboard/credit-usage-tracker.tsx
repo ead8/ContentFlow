@@ -1,28 +1,34 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
+import { fetchCreditUsage } from "@/lib/n8n/client"
 
 export function CreditUsageTracker() {
-  const credits = {
-    posts: {
-      used: 24,
-      total: 50,
-      label: "Posts"
-    },
-    images: {
-      used: 85,
-      total: 100,
-      label: "Image Generations"
-    },
-    videos: {
-      used: 3,
-      total: 10,
-      label: "Video Credits"
+  const [credits, setCredits] = useState({
+    posts: { used: 0, total: 50, label: "Posts" },
+    images: { used: 0, total: 100, label: "Image Generations" },
+    videos: { used: 0, total: 10, label: "Video Credits" }
+  })
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadCredits() {
+      try {
+        const data = await fetchCreditUsage()
+        setCredits(data)
+      } catch (error) {
+        console.error('Failed to load credit usage:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
+
+    loadCredits()
+  }, [])
 
   return (
     <Card>
