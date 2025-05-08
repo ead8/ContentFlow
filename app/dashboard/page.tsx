@@ -1,13 +1,14 @@
 "use client"
 
 import { Suspense } from "react"
-import { PostPerformanceOverview } from "@/components/dashboard/post-performance-overview"
-import { ContentCreationShortcuts } from "@/components/dashboard/content-creation-shortcuts"
-import { CreditUsageTracker } from "@/components/dashboard/credit-usage-tracker"
-import { AccountSummary } from "@/components/dashboard/account-summary"
-import { QuickStatsSnapshot } from "@/components/dashboard/quick-stats-snapshot"
+import {
+  PostPerformanceOverview,
+  ContentCreationShortcuts,
+  CreditUsageTracker,
+  AccountSummary,
+  QuickStatsSnapshot
+} from "@/components/dashboard"
 import { DashboardSkeleton } from "@/components/dashboard-skeleton"
-import { createClient } from "@/lib/supabase/client"
 
 export default function DashboardPage() {
   return (
