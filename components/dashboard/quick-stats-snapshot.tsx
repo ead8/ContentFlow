@@ -1,20 +1,36 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { ArrowUpRight, ArrowDownRight, TrendingUp } from "lucide-react"
-
-const data = [
-  { name: "Mon", value: 240 },
-  { name: "Tue", value: 139 },
-  { name: "Wed", value: 380 },
-  { name: "Thu", value: 290 },
-  { name: "Fri", value: 430 },
-  { name: "Sat", value: 328 },
-  { name: "Sun", value: 539 },
-]
+import { fetchDashboardStats } from "@/lib/n8n/client"
 
 export function QuickStatsSnapshot() {
+  const [stats, setStats] = useState({
+    totalPosts: 0,
+    engagementRate: 0,
+    avgReach: 0,
+    videoViews: 0,
+    weeklyData: []
+  })
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const data = await fetchDashboardStats()
+        setStats(data)
+      } catch (error) {
+        console.error('Failed to load dashboard stats:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadStats()
+  }, [])
+
   return (
     <Card className="col-span-2">
       <CardHeader>
@@ -24,25 +40,25 @@ export function QuickStatsSnapshot() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <StatCard
             title="Total Posts"
-            value="156"
+            value={stats.totalPosts.toString()}
             change="+12.3%"
             trend="up"
           />
           <StatCard
             title="Engagement Rate"
-            value="5.2%"
+            value={`${stats.engagementRate}%`}
             change="+0.8%"
             trend="up"
           />
           <StatCard
             title="Avg. Reach"
-            value="12.4k"
+            value={`${(stats.avgReach / 1000).toFixed(1)}k`}
             change="-2.1%"
             trend="down"
           />
           <StatCard
             title="Video Views"
-            value="45.2k"
+            value={`${(stats.videoViews / 1000).toFixed(1)}k`}
             change="+24.5%"
             trend="up"
           />
@@ -50,7 +66,7 @@ export function QuickStatsSnapshot() {
         
         <div className="h-[200px] mt-6">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={stats.weeklyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
