@@ -8,8 +8,32 @@ import { Settings, Users, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { fetchAccountSummary } from "@/lib/n8n/client"
 
+interface Platform {
+  name: string
+  status: "connected" | "disconnected"
+  profile?: string
+  lastSync?: string
+}
+
+interface TeamMember {
+  id: string
+  name: string
+  initials: string
+  role: string
+}
+
+interface Subscription {
+  upgradeAvailable?: boolean
+}
+
+interface AccountData {
+  platforms: Platform[]
+  teamMembers: TeamMember[]
+  subscription: Subscription
+}
+
 export function AccountSummary() {
-  const [accountData, setAccountData] = useState({
+  const [accountData, setAccountData] = useState<AccountData>({
     platforms: [],
     teamMembers: [],
     subscription: {}
@@ -52,7 +76,7 @@ export function AccountSummary() {
               >
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    {platform.name.charAt(0)}
+                    {platform.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <p className="text-sm font-medium">{platform.name}</p>
