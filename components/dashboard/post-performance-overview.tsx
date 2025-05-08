@@ -8,8 +8,24 @@ import { format } from "date-fns"
 import { Calendar, ThumbsUp, MessageSquare, Users, ExternalLink } from "lucide-react"
 import { fetchPostPerformance } from "@/lib/n8n/client"
 
+interface PostEngagement {
+  likes: number;
+  comments: number;
+  reach: number;
+}
+
+interface Post {
+  id: string;
+  thumbnail: string;
+  title: string;
+  status: "posted" | "scheduled" | "draft";
+  platform: string;
+  date: string;
+  engagement?: PostEngagement;
+}
+
 export function PostPerformanceOverview() {
-  const [posts, setPosts] = useState([])
+  const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
