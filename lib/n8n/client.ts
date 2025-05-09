@@ -17,7 +17,7 @@ export async function fetchDashboardStats() {
 
   const response = await fetch(`${N8N_API_URL}/api/v1/dashboard/stats`, {
     headers: {
-      'X-N8N-API-KEY': N8N_API_KEY,
+      'X-N8N-API-KEY': N8N_API_KEY ?? '',
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
@@ -39,7 +39,7 @@ export async function fetchPostPerformance() {
 
   const response = await fetch(`${N8N_API_URL}/api/v1/posts/performance`, {
     headers: {
-      'X-N8N-API-KEY': N8N_API_KEY,
+      'X-N8N-API-KEY': N8N_API_KEY ?? '',
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
@@ -61,7 +61,7 @@ export async function fetchCreditUsage() {
 
   const response = await fetch(`${N8N_API_URL}/api/v1/credits/usage`, {
     headers: {
-      'X-N8N-API-KEY': N8N_API_KEY,
+      'X-N8N-API-KEY': N8N_API_KEY ?? '',
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
@@ -83,7 +83,7 @@ export async function fetchAccountSummary() {
 
   const response = await fetch(`${N8N_API_URL}/api/v1/account/summary`, {
     headers: {
-      'X-N8N-API-KEY': N8N_API_KEY,
+      'X-N8N-API-KEY': N8N_API_KEY ?? '',
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
