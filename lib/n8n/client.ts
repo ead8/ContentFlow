@@ -1,3 +1,4 @@
+import { ImageUploadStep } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
 import { ContentGenerationRequest, ContentGenerationResponse } from '@/models/content';
 
@@ -136,4 +137,53 @@ export async function generateContent(data: ContentGenerationRequest): Promise<C
   }
 
   return generated_content; // Return the properly typed response
+}
+
+export async function generateImage(data: ImageUploadStep): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // Check if the session exists (user is authenticated)
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_IMAGE_GENERATION_WEBHOOK_URL;
+  if (!n8nWebhookUrl) {
+    throw new Error("N8N webhook URL is not defined in environment variables.");
+  }
+
+  const response = await fetch(n8nWebhookUrl, {
+    method: "POST",
+    // headers: {
+    //   "Content-Type": "application/json",
+    // },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Unknown error";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+      console.error("N8N Webhook Error:", errorData);
+    } catch (err) {
+      console.error("Failed to parse error response:", err);
+    }
+    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+  }
+
+  // Parse response and return the image URL
+  const responseBody = await response.json();
+  console.log("Response from N8N:", responseBody);
+  // const responseJson = JSON.parse(responseBody)
+  if (!responseBody.image_url) {
+    throw new Error("No image URL returned from N8N.");
+  }
+
+  console.log(responseBody)
+  console.log("Generated image URL:", responseBody.image_url);
+  return responseBody.image_url; // Return the image URL
 }
