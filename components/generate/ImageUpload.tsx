@@ -8,6 +8,8 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { UploadCloud } from "lucide-react";
 import { ImageUploadStep } from "./MultiStep";
+import { generateImage } from "@/lib/n8n/client";
+import { useToast } from "@/hooks/use-toast";
 
 
 interface ImageUploadsProps {
@@ -17,8 +19,9 @@ interface ImageUploadsProps {
 }
 
 const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps) => {
+  const { toast } = useToast();
   const [uploadPreview, setUploadPreview] = useState<string | null>(data?.image_upload || null);
-  const [generationPrompt, setGenerationPrompt] = useState<string>(data?.image_prompt || "");
+  const [generationPrompt, setGenerationPrompt] = useState<string>(data?.prompt || "");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,22 +35,38 @@ const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps)
   };
 
   const handleGenerateImage = async () => {
-    if (!generationPrompt.trim()) return;
-    setIsGenerating(true);
-
-    // Simulated image generation. Replace with your DALL·E API logic
-    const generatedImageUrl = `https://dummyimage.com/600x400/000/fff&text=${encodeURIComponent(
-      generationPrompt
-    )}`;
-
-    setUploadPreview(generatedImageUrl);
-    setStepData({
-      image_prompt: generationPrompt,
-      image_source: "generated",
-      image_upload: generatedImageUrl,
-    })
-    setNextStepValid(true)
-    setIsGenerating(false);
+    try {
+      if (!generationPrompt.trim()) return;
+      setIsGenerating(true);
+  
+      // Simulated image generation. Replace with your DALL·E API logic
+      const generatedImageUrl = await generateImage({
+        prompt: generationPrompt,
+      })
+  
+      setUploadPreview(generatedImageUrl);
+      setStepData({
+        prompt: generationPrompt,
+        image_source: "generated",
+        image_upload: generatedImageUrl,
+      })
+      setNextStepValid(true)
+      setIsGenerating(false);
+      toast({
+        title: "Image generated",
+        description: "Your Image has been successfully generated.",
+      });
+    
+    } catch (error: any) {
+      console.error("Error generating image:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: error.message || "There was an error generating your image.",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
