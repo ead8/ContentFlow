@@ -13,7 +13,7 @@ import PreviewPostData from './Preview';
 
 export interface ImageUploadStep {
   image_upload?: string;
-  image_prompt?: string;
+  prompt?: string;
   image_source?: 'generated' | 'uploaded';
   file?: File;
 }
