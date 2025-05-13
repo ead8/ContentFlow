@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
+import { WorkspaceSwitcher } from "./workspace-switcher"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -37,6 +38,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
   const [isMounted, setIsMounted] = useState(false)
+  const [workspaces, setWorkspaces] = useState(["Marketing", "Social", "Research"])
+  const [currentWorkspace, setCurrentWorkspace] = useState("Marketing")
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -125,7 +128,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Sheet>
             <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
               <BrainCircuit className="h-6 w-6 text-primary" />
-              <span className="hidden md:inline-block">Intuity Sync</span>
+              {/* <span className="hidden md:inline-block">Intuity Sync</span> */}
+               <WorkspaceSwitcher
+                current={currentWorkspace}
+                options={workspaces}
+                onChange={(ws) => setCurrentWorkspace(ws)}
+                onAddNew={() => {
+                  const newWs = prompt("Enter new workspace name")
+                  if (newWs) setWorkspaces((prev) => [...prev, newWs])
+                }}
+                onSettings={() => alert("Open Workspace Settings")}
+                />
             </Link>
             <nav className="hidden md:flex items-center gap-1 lg:gap-2">
               {routes.map((route) => (

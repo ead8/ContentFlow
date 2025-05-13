@@ -9,6 +9,7 @@ import VideoGeneration from './videoGeneration';
 import ScheduleConfirm from './scheduleConfirm';
 import { ContentGenerationResponse } from '@/models/content';
 import PreviewPostData from './Preview';
+import { Calendar, CheckCircle, Eye, ImagePlus, Lightbulb, Video } from 'lucide-react';
 
 
 export interface ImageUploadStep {
@@ -19,8 +20,6 @@ export interface ImageUploadStep {
 }
 
 export interface VideoGenerationStep {
-  add_video: boolean;
-  video_type?: 'Tavus' | 'Shotstack';
   video_prompt?: string;
   video_url?: string;
 }
@@ -94,11 +93,11 @@ function MultiStepWizard() {
   }
 
   const stepsData = [
-    { step: 1, title: 'Campaign Idea', component: <CampaignIdea data={formData.step_1} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)}/> },
-    { step: 2, title: 'Image Upload', component: <ImageUpload data={formData.step_2} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)}/> },
-    { step: 3, title: 'Video Creation', component: <VideoGeneration data={formData.step_3} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)}/> },
-    { step: 4, title: 'Post Preview', component: <PreviewPostData data={formData}/> },
-    { step: 5, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setNextStepValid={(valid: boolean) => setStepValid(5, valid)}/> },
+    { step: 1, icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Campaign Idea', component: <CampaignIdea data={formData.step_1} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)}/> },
+    { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Upload', component: <ImageUpload data={formData.step_2} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)}/> },
+    { step: 3, icon: <Video className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Video Creation', component: <VideoGeneration data={formData.step_3} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)}/> },
+    { step: 4, icon: <Eye className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Post Preview', component: <PreviewPostData data={formData}/> },
+    { step: 5, icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setNextStepValid={(valid: boolean) => setStepValid(5, valid)}/> },
   ];
 
   const currentStep = stepsData[step - 1];
@@ -106,45 +105,49 @@ function MultiStepWizard() {
 
   return (
     <div className="mx-auto">
-      <div className="flex md:flex-row flex-col md:items-center items-start md:space-x-0 space-y-6 md:space-y-0 md:justify-between mb-10 relative">
-        {stepsData.map((item, index) => (
-            <div key={item.step} className="flex items-center w-full md:w-auto">
-                {/* Step Circle + Label */}
-                <div className="flex flex-col items-center text-center md:flex-row md:items-center md:space-x-2 w-full">
-                    <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white z-10 ${
-                        step >= item.step ? 'bg-primary' : 'bg-gray-300'
-                    }`}
-                    >
-                    {item.step}
-                    </div>
-                    <div className={`text-sm font-medium mt-2 md:mt-0 ${step >= item.step ? 'text-primary' : 'text-gray-400'}`}>
-                    {item.title}
-                    </div>
+      {/* Horizontal Stepper with Icons on Mobile - Non-clickable */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex justify-between items-center overflow-x-auto no-scrollbar py-2">
+          {stepsData.map((item, index) => (
+            <div key={item.step} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    step > item.step
+                      ? "bg-green-500 text-white"
+                      : step === item.step
+                        ? "bg-primary text-white"
+                        : "bg-gray-100 text-gray-500 border border-gray-300"
+                  }`}
+                >
+                  {step > item.step ? <CheckCircle className="w-5 h-5" /> : item.icon}
                 </div>
+                <span className="hidden sm:block text-xs mt-1 font-medium text-center">{item.title}</span>
+              </div>
 
-                {/* Connector line - only if not last step */}
-                {index < stepsData.length - 1 && (
-                    <div
-                    className={`hidden md:block flex-grow h-1 mx-2 ${
-                        step > item.step ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                    style={{ minWidth: '40px' }}
-                    />
-                )}
-
-                {/* Vertical line on small screens */}
-                {index < stepsData.length - 1 && (
-                    <div
-                    className={`block md:hidden w-1 h-6 mx-auto ${
-                        step > item.step ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                    />
-                )}
+              {/* Connector line - only if not last step */}
+              {index < stepsData.length - 1 && (
+                <div
+                  className={`h-0.5 w-4 sm:w-8 md:w-12 lg:w-16 mx-1 sm:mx-2 ${
+                    step > item.step ? "bg-green-500" : "bg-gray-200"
+                  }`}
+                />
+              )}
             </div>
-        ))}
+          ))}
+        </div>
       </div>
 
+      {/* Current step indicator */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center">
+          {currentStep.icon}
+          <h2 className="text-lg sm:text-xl font-semibold ml-2 text-primary">{currentStep.title}</h2>
+        </div>
+        <div className="text-xs sm:text-sm text-gray-500">
+          Step {step} of {stepsData.length}
+        </div>
+      </div>
 
       <div className="mb-6">
         {currentStep.component}
