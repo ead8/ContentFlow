@@ -28,9 +28,6 @@ export async function handleOnboarding(onboardingData: OnboardingType): Promise<
   if (profileError) {
     throw new Error(profileError.message)
   }
-
-  // Simulated webhook
-  console.log(`Webhook simulated for user ${user_id}`)
   
   return true
 }
