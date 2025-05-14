@@ -179,14 +179,11 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
 
   // Parse response and return the image URL
   const responseBody = await response.json();
-  console.log("Response from N8N:", responseBody);
   // const responseJson = JSON.parse(responseBody)
   if (!responseBody.image_url) {
     throw new Error("No image URL returned from N8N.");
   }
 
-  console.log(responseBody)
-  console.log("Generated image URL:", responseBody.image_url);
   return responseBody.image_url; // Return the image URL
 }
 
@@ -228,14 +225,11 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
 
   // Parse response and return the image URL
   const responseBody = await response.json();
-  console.log("Response from N8N:", responseBody);
   // const responseJson = JSON.parse(responseBody)
   if (!responseBody.image_url) {
     throw new Error("No image URL returned from N8N.");
   }
 
-  console.log(responseBody)
-  console.log("Generated image URL:", responseBody.image_url);
   return responseBody.image_url; // Return the image URL
 }
 
@@ -296,12 +290,10 @@ export async function createPost(data: WizardFormData): Promise<string> {
 
   // Parse response and return the image URL
   const responseBody = await response.json();
-  console.log("Response from N8N:", responseBody);
   // const responseJson = JSON.parse(responseBody)
   if (!responseBody.image_url) {
     throw new Error("No image URL returned from N8N.");
   }
 
-  console.log(responseBody)
   return responseBody.image_url; // Return the image URL
 }
