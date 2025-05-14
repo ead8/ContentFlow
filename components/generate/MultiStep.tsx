@@ -122,11 +122,40 @@ function MultiStepWizard() {
     setFormData((prev) => ({ ...prev, step_5: data }));
   }
 
+  const handleContentChange = (platform: string, field: string, value: string | string[]) => {
+    setFormData((prev) => {
+      const prevStep1 = prev.step_1 ?? {
+        name: '',
+        description: '',
+        additional_notes: '',
+        platform_posts: {},
+      };
+
+      const prevPlatformPosts = prevStep1.platform_posts ?? {};
+
+      return {
+        ...prev,
+        step_1: {
+          ...prevStep1,
+          platform_posts: {
+            ...prevPlatformPosts,
+            [platform]: {
+              ...prevPlatformPosts[platform],
+              [field]: value,
+            },
+          },
+        },
+      };
+    });
+  };
+
+
+
   const stepsData = [
     { step: 1, icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Campaign Idea', component: <CampaignIdea data={formData} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)} setBackStepValid={(valid: boolean) => setBackValid(1, valid)}/> },
     { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Upload', component: <ImageUpload data={formData} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)} setBackStepValid={(valid: boolean) => setBackValid(2, valid)}/> },
     { step: 3, icon: <Video className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Video Creation', component: <VideoGeneration data={formData} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)} setBackStepValid={(valid: boolean) => setBackValid(3, valid)}/> },
-    { step: 4, icon: <Eye className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Post Preview', component: <PreviewPostData data={formData}/> },
+    { step: 4, icon: <Eye className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Post Preview', component: <PreviewPostData data={formData} onUpdate={handleContentChange}/> },
     { step: 5, icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setBackStepValid={(valid: boolean) => setBackValid(5, valid)}/> },
   ];
 
