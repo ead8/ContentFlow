@@ -36,6 +36,10 @@ export interface ScheduleStep {
 
 export interface WizardFormData {
   user_id?: string;
+  topic?: string;
+  platform?: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">;
+  tone?: "professional" | "casual" | "enthusiastic" | "informative";
+  audience?: string;
   step_1?: ContentGenerationResponse;
   step_2?: ImageUploadStep;
   step_3?: VideoGenerationStep;
@@ -58,6 +62,14 @@ function MultiStepWizard() {
       }).reduce((acc, curr) => ({ ...acc, ...curr }), {})
   );
 
+  const [isBackStepValidMap, setIsBackStepValidMap] = useState<Record<number, boolean>>(
+    () =>
+      Array.from({ length: 5 }, (_, i) => {
+        const stepIndex = i + 1;
+        return { [stepIndex]: true }; // Back is always valid for first time
+      }).reduce((acc, curr) => ({ ...acc, ...curr }), {})
+  );
+
   const nextStep = () => {
     setStep(prevStep => Math.min(prevStep + 1, 5)); // Ensure step does not exceed 5
   };
@@ -69,6 +81,10 @@ function MultiStepWizard() {
   const setStepValid = (stepIndex: number, isValid: boolean) => {
     setIsNextStepValidMap((prev) => ({ ...prev, [stepIndex]: isValid }));
   };
+
+  const setBackValid = (stepIndex: number, isValid: boolean) => {
+    setIsBackStepValidMap((prev) => ({ ...prev, [stepIndex]: isValid }));
+  };
   
   useEffect(() => {
     if (user?.id && !formData.user_id) {
@@ -77,8 +93,22 @@ function MultiStepWizard() {
   }, [user, formData.user_id]);
   
 
-  const handleSetCampaignIdeaData = (data: ContentGenerationResponse) => { 
-    setFormData((prev) => ({ ...prev, step_1: data }));
+  const handleSetCampaignIdeaData = (
+    topic: string, 
+    platform: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">,
+    tone: "professional" | "casual" | "enthusiastic" | "informative",
+    audience: string,
+    data: ContentGenerationResponse
+
+  ) => { 
+    setFormData((prev) => ({ 
+      ...prev, 
+      step_1: data,
+      topic,
+      platform,
+      tone,
+      audience,
+    }));
   }
   const handleSetImageUploadData = (data: ImageUploadStep) => { 
     setFormData((prev) => ({ ...prev, step_2: data }));
@@ -93,15 +123,16 @@ function MultiStepWizard() {
   }
 
   const stepsData = [
-    { step: 1, icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Campaign Idea', component: <CampaignIdea data={formData.step_1} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)}/> },
-    { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Upload', component: <ImageUpload data={formData.step_2} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)}/> },
-    { step: 3, icon: <Video className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Video Creation', component: <VideoGeneration data={formData.step_3} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)}/> },
+    { step: 1, icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Campaign Idea', component: <CampaignIdea data={formData} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)} setBackStepValid={(valid: boolean) => setBackValid(1, valid)}/> },
+    { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Upload', component: <ImageUpload data={formData} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)} setBackStepValid={(valid: boolean) => setBackValid(2, valid)}/> },
+    { step: 3, icon: <Video className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Video Creation', component: <VideoGeneration data={formData} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)} setBackStepValid={(valid: boolean) => setBackValid(3, valid)}/> },
     { step: 4, icon: <Eye className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Post Preview', component: <PreviewPostData data={formData}/> },
-    { step: 5, icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setNextStepValid={(valid: boolean) => setStepValid(5, valid)}/> },
+    { step: 5, icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setBackStepValid={(valid: boolean) => setBackValid(5, valid)}/> },
   ];
 
   const currentStep = stepsData[step - 1];
   const isNextDisabled = !isNextStepValidMap[step];
+  const isBackDisabled = !isBackStepValidMap[step];
 
   return (
     <div className="mx-auto">
@@ -158,6 +189,7 @@ function MultiStepWizard() {
         nextStep={nextStep} 
         prevStep={prevStep} 
         isNextDisabled={isNextDisabled}
+        isBackDisabled={isBackDisabled}
       />
     </div>
   );

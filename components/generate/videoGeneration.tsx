@@ -16,7 +16,7 @@ import {
   Form,
 } from '@/components/ui/form'
 import { Card, CardContent } from '../ui'
-import { VideoGenerationStep } from './MultiStep'
+import { VideoGenerationStep, WizardFormData } from './MultiStep'
 import { generateMedia } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -27,24 +27,26 @@ const videoFormSchema = z.object({
 type VideoFormData = z.infer<typeof videoFormSchema>
 
 interface VideoGenerationProps {
-  data?: VideoGenerationStep
+  data?: WizardFormData
   setStepData: (stepData: VideoGenerationStep) => void
   setNextStepValid: (isValid: boolean) => void
+  setBackStepValid: (isValid: boolean) => void;
 }
 
 export default function VideoGeneration({
   data,
   setStepData,
   setNextStepValid,
+  setBackStepValid
 }: VideoGenerationProps) {
   const { toast } = useToast()
-  const [videoUrl, setVideoUrl] = useState<string | null>(data?.video_url || null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(data?.step_3?.video_url || null)
   const [isGenerating, setIsGenerating] = useState(false)
 
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
     defaultValues: {
-      video_prompt: data?.video_prompt || '',
+      video_prompt: data?.step_3?.video_prompt || '',
     },
   })
 
@@ -53,6 +55,7 @@ export default function VideoGeneration({
   const handleGenerate = async (formData: VideoFormData) => {
     try {
       setIsGenerating(true)
+      setBackStepValid(false)
 
       const generatedVideoUrl = await generateMedia({
         prompt: formData.video_prompt,
@@ -87,6 +90,7 @@ export default function VideoGeneration({
       })
     } finally {
       setIsGenerating(false)
+      setBackStepValid(true)
     }
   }
 
@@ -136,33 +140,36 @@ export default function VideoGeneration({
               )}
             </Button>
           </form>
-
-          {/* Video Preview Box */}
-          {(videoUrl || isGenerating) && (
-            <div className="pt-4">
-              <FormLabel className="block mb-2 text-sm font-medium text-muted-foreground">
-                Preview
-              </FormLabel>
-              <div className="w-full max-w-2xl aspect-video rounded-xl border border-muted-foreground/10 shadow-lg overflow-hidden bg-muted relative">
-                {isGenerating ? (
-                  <div className="flex flex-col items-center justify-center gap-3 w-full h-full animate-pulse">
-                    <div className="w-12 h-12 rounded-full bg-muted-foreground/20 animate-spin border-2 border-muted-foreground/30 border-t-transparent" />
-                    <span className="text-sm text-muted-foreground">
-                      Generating your video...
-                    </span>
-                  </div>
-                ) : (
-                  <video
-                    controls
-                    src={videoUrl ?? undefined}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-            </div>
-          )}
         </Form>
+              {/* Video Preview Box */}
+        {(isGenerating || videoUrl) && (
+          <div className="pt-4">
+            <p className="block mb-2 text-sm font-medium text-muted-foreground">
+              Video Preview
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl">
+              {data?.platform?.map((platform, idx) => (
+                <div
+                  key={idx}
+                  className="w-full max-w-2xl aspect-video rounded-xl border border-muted-foreground/10 shadow overflow-hidden bg-muted relative flex flex-col items-center justify-center"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-muted-foreground/20 animate-spin border-2 border-muted-foreground/30 border-t-transparent" />
+                      <span className="text-sm text-muted-foreground mt-2">
+                        Generating video for {platform}...
+                      </span>
+                    </>
+                  ) : videoUrl ? (
+                    <video controls src={videoUrl} className="w-full h-full object-cover" />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
+
     </Card>
   )
 }

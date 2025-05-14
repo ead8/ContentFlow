@@ -1,6 +1,7 @@
-import { ImageUploadStep } from '@/components/generate/MultiStep';
+import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
 import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest } from '@/models/content';
+import { use } from 'react';
 
 const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
 const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
@@ -111,6 +112,7 @@ export async function generateContent(data: ContentGenerationRequest): Promise<C
   if (!n8nWebhookUrl) {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
+
 
   const response = await fetch(n8nWebhookUrl, {
     method: "POST",
@@ -234,5 +236,71 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
 
   console.log(responseBody)
   console.log("Generated image URL:", responseBody.image_url);
+  return responseBody.image_url; // Return the image URL
+}
+
+export async function createPost(data: WizardFormData): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // Check if the session exists (user is authenticated)
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_CREATE_POST_WEBHOOK_URL;
+  if (!n8nWebhookUrl) {
+    throw new Error("N8N webhook URL is not defined in environment variables.");
+  }
+
+  const response = await fetch(n8nWebhookUrl, {
+    method: "POST",
+    // headers: {
+    //   "Content-Type": "application/json",
+    // },
+    body: JSON.stringify({
+      user_id: data.user_id,
+      workspace_id: "1b447a55-5536-43fc-a712-085a687cd3a6",
+      topic: data.topic,
+      tone: data.tone,
+      platforms: data.platform,
+      image: {
+        source: data.step_2?.image_source,
+        prompt: data.step_2?.prompt,
+        url: data.step_2?.image_upload,
+      },
+      video: {
+        prompt: data.step_3?.video_prompt,
+        url: data.step_3?.video_url,
+      },
+      content: data.step_1?.platform_posts,
+      schedule_at: data.step_5?.schedule_at,
+      status: data.step_5?.status,
+    }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Unknown error";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+      console.error("N8N Webhook Error:", errorData);
+    } catch (err) {
+      console.error("Failed to parse error response:", err);
+    }
+    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+  }
+
+  // Parse response and return the image URL
+  const responseBody = await response.json();
+  console.log("Response from N8N:", responseBody);
+  // const responseJson = JSON.parse(responseBody)
+  if (!responseBody.image_url) {
+    throw new Error("No image URL returned from N8N.");
+  }
+
+  console.log(responseBody)
   return responseBody.image_url; // Return the image URL
 }
