@@ -208,9 +208,9 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
 
   const response = await fetch(n8nWebhookUrl, {
     method: "POST",
-    // headers: {
-    //   "Content-Type": "application/json",
-    // },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   });
 
@@ -257,9 +257,9 @@ export async function createPost(data: WizardFormData): Promise<string> {
 
   const response = await fetch(n8nWebhookUrl, {
     method: "POST",
-    // headers: {
-    //   "Content-Type": "application/json",
-    // },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       user_id: data.user_id,
       workspace_id: "1b447a55-5536-43fc-a712-085a687cd3a6",
@@ -272,6 +272,7 @@ export async function createPost(data: WizardFormData): Promise<string> {
         url: data.step_2?.image_upload,
       },
       video: {
+        source: "Kling_generated",
         prompt: data.step_3?.video_prompt,
         url: data.step_3?.video_url,
       },
