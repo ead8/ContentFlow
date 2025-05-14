@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { WizardFormData } from "./MultiStep";
 import { Label } from "../ui";
 
@@ -21,6 +21,31 @@ export default function CampaignContentTabs({
 }: CampaignContentTabsProps) {
   const platforms = Object.entries(data?.step_1?.platform_posts || {});
 
+  // ✅ Store localTags per platform in state
+  const [localTagsMap, setLocalTagsMap] = useState<Record<string, string[]>>({});
+
+  // ✅ Sync initial hashtags from data
+  useEffect(() => {
+    const initialTags: Record<string, string[]> = {};
+    platforms.forEach(([platform, post]) => {
+      initialTags[platform] = post?.hashtags || [];
+    });
+    setLocalTagsMap(initialTags);
+  }, [data]);
+
+  const addTag = (platform: string, tag: string) => {
+    if (!tag.trim()) return;
+    const newTags = [...(localTagsMap[platform] || []), tag.trim()];
+    setLocalTagsMap((prev) => ({ ...prev, [platform]: newTags }));
+    onUpdate(platform, "hashtags", newTags);
+  };
+
+  const removeTag = (platform: string, tag: string) => {
+    const newTags = (localTagsMap[platform] || []).filter((t) => t !== tag);
+    setLocalTagsMap((prev) => ({ ...prev, [platform]: newTags }));
+    onUpdate(platform, "hashtags", newTags);
+  };
+
   return (
     <Tabs defaultValue={platforms[0]?.[0]} className="w-full">
       <TabsList className="mb-4 overflow-x-auto">
@@ -32,64 +57,58 @@ export default function CampaignContentTabs({
       </TabsList>
 
       {platforms.map(([platform, post]) => {
-        const hashtags = post?.hashtags || [];
-
-        const [localTags, setLocalTags] = useState<string[]>(hashtags);
-
-        const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-          if (e.key === "Enter" && e.currentTarget.value.trim()) {
-            const newTags = [...localTags, e.currentTarget.value.trim()];
-            setLocalTags(newTags);
-            onUpdate(platform, "hashtags", newTags);
-            e.currentTarget.value = "";
-            e.preventDefault();
-          }
-        };
-
-        const removeTag = (tag: string) => {
-          const updated = localTags.filter((t) => t !== tag);
-          setLocalTags(updated);
-          onUpdate(platform, "hashtags", updated);
-        };
-
         return (
           <TabsContent key={platform} value={platform}>
             <div className="space-y-4 p-4 bg-white rounded-md shadow-sm">
-                <div className="space-y-2">
-                    <Label htmlFor={`post-${platform}`}>Post</Label>
-                    <Textarea
-                        value={post.post || ""}
-                        onChange={(e) => {
-                            onUpdate(platform, "post", e.target.value)
-                        }
-                        }
-                        placeholder="Post content"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor={`post-${platform}`}>Call to Action</Label>
-                    <Textarea
-                        value={post.call_to_action || ""}
-                        onChange={(e) => {
-                            onUpdate(platform, "call_to_action", e.target.value)}
-                        }
-                        placeholder="Call to Action"
-                    />
-                </div>
-              <div>
+              {/* Post */}
+              <div className="space-y-2">
+                <Label htmlFor={`post-${platform}`}>Post</Label>
+                <Textarea
+                  id={`post-${platform}`}
+                  value={post.post || ""}
+                  onChange={(e) => onUpdate(platform, "post", e.target.value)}
+                  placeholder="Post content"
+                />
+              </div>
+
+              {/* Call to Action */}
+              <div className="space-y-2">
+                <Label htmlFor={`cta-${platform}`}>Call to Action</Label>
+                <Textarea
+                  id={`cta-${platform}`}
+                  value={post.call_to_action || ""}
+                  onChange={(e) => onUpdate(platform, "call_to_action", e.target.value)}
+                  placeholder="Call to Action"
+                />
+              </div>
+
+              {/* Hashtags */}
+              <div className="space-y-2">
+                <Label htmlFor={`hashtags-${platform}`}>Hashtags</Label>
                 <Input
-                  onKeyDown={addTag}
+                  id={`hashtags-${platform}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTag(platform, e.currentTarget.value);
+                      e.currentTarget.value = "";
+                    }
+                  }}
                   placeholder="Type a hashtag and press Enter"
                 />
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {localTags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="flex items-center gap-1">
-                      {tag}
+                  {(localTagsMap[platform] || []).map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
+                      #{tag}
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-4 w-4"
-                        onClick={() => removeTag(tag)}
+                        onClick={() => removeTag(platform, tag)}
                       >
                         <X className="h-3 w-3" />
                       </Button>
