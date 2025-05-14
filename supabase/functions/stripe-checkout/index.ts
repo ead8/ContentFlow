@@ -84,7 +84,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (getCustomerError) {
-      console.error('Failed to fetch customer information from the database', getCustomerError);
 
       return corsResponse({ error: 'Failed to fetch customer information' }, 500);
     }
@@ -102,7 +101,6 @@ Deno.serve(async (req) => {
         },
       });
 
-      console.log(`Created new Stripe customer ${newCustomer.id} for user ${user.id}`);
 
       const { error: createCustomerError } = await supabase.from('stripe_customers').insert({
         user_id: user.id,
@@ -110,14 +108,12 @@ Deno.serve(async (req) => {
       });
 
       if (createCustomerError) {
-        console.error('Failed to save customer information in the database', createCustomerError);
 
         // Try to clean up both the Stripe customer and subscription record
         try {
           await stripe.customers.del(newCustomer.id);
           await supabase.from('stripe_subscriptions').delete().eq('customer_id', newCustomer.id);
         } catch (deleteError) {
-          console.error('Failed to clean up after customer mapping error:', deleteError);
         }
 
         return corsResponse({ error: 'Failed to create customer mapping' }, 500);
@@ -130,13 +126,11 @@ Deno.serve(async (req) => {
         });
 
         if (createSubscriptionError) {
-          console.error('Failed to save subscription in the database', createSubscriptionError);
 
           // Try to clean up the Stripe customer since we couldn't create the subscription
           try {
             await stripe.customers.del(newCustomer.id);
           } catch (deleteError) {
-            console.error('Failed to delete Stripe customer after subscription creation error:', deleteError);
           }
 
           return corsResponse({ error: 'Unable to save the subscription in the database' }, 500);
@@ -145,7 +139,6 @@ Deno.serve(async (req) => {
 
       customerId = newCustomer.id;
 
-      console.log(`Successfully set up new customer ${customerId} with subscription record`);
     } else {
       customerId = customer.customer_id;
 
@@ -158,7 +151,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (getSubscriptionError) {
-          console.error('Failed to fetch subscription information from the database', getSubscriptionError);
 
           return corsResponse({ error: 'Failed to fetch subscription information' }, 500);
         }
@@ -171,7 +163,6 @@ Deno.serve(async (req) => {
           });
 
           if (createSubscriptionError) {
-            console.error('Failed to create subscription record for existing customer', createSubscriptionError);
 
             return corsResponse({ error: 'Failed to create subscription record for existing customer' }, 500);
           }
@@ -194,11 +185,9 @@ Deno.serve(async (req) => {
       cancel_url,
     });
 
-    console.log(`Created checkout session ${session.id} for customer ${customerId}`);
 
     return corsResponse({ sessionId: session.id, url: session.url });
   } catch (error: any) {
-    console.error(`Checkout error: ${error.message}`);
     return corsResponse({ error: error.message }, 500);
   }
 });
