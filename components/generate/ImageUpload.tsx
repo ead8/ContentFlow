@@ -4,17 +4,18 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UploadCloud, Sparkles } from 'lucide-react'
+import { UploadCloud, Sparkles, Maximize2 } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form'
 import { Textarea } from '../ui/textarea'
 
-import { ImageUploadStep } from './MultiStep'
+import { ImageUploadStep, WizardFormData } from './MultiStep'
 import { generateMedia } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
 import { z } from 'zod'
+import FullscreenImageViewer from './fullScreenViewer'
 
 const imageUploadSchema = z.object({
   generationPrompt: z
@@ -23,21 +24,23 @@ const imageUploadSchema = z.object({
 })
 
 interface ImageUploadsProps {
-  data?: ImageUploadStep
+  data?: WizardFormData
   setStepData: (stepData: ImageUploadStep) => void
   setNextStepValid: (isValid: boolean) => void
+  setBackStepValid: (isValid: boolean) => void;
 }
 
-const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps) => {
+const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: ImageUploadsProps) => {
   const { toast } = useToast()
-  const [uploadPreview, setUploadPreview] = useState<string | null>(data?.image_upload || null)
+  const [uploadPreview, setUploadPreview] = useState<string | null>(data?.step_2?.image_upload || null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
 
   // Initialize react-hook-form
   const form = useForm({
     resolver: zodResolver(imageUploadSchema),
     defaultValues: {
-      generationPrompt: data?.prompt || '',
+      generationPrompt: data?.step_2?.prompt || '',
     },
   })
 
@@ -54,6 +57,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps)
   const onSubmit = async (formData: { generationPrompt: string }) => {
     try {
       setIsGenerating(true)
+      setBackStepValid(false)
       const generatedImageUrl = await generateMedia({
         prompt: formData.generationPrompt,
         media_type: 'image',
@@ -80,6 +84,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps)
       })
     } finally {
       setIsGenerating(false)
+      setBackStepValid(true)
     }
   }
 
@@ -146,20 +151,44 @@ const ImageUpload = ({ data, setStepData, setNextStepValid }: ImageUploadsProps)
 
         {/* Preview Section */}
         {uploadPreview && (
-          <div>
-            <h3 className="text-lg font-medium mb-2 text-muted-foreground">Preview</h3>
-            <div className="rounded-xl overflow-hidden w-full max-w-lg border border-muted shadow-md">
-              <Image
-                src={uploadPreview}
-                alt="Uploaded or generated preview"
-                width={800}
-                height={500}
-                className="object-cover w-full h-auto transition-all"
-              />
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-muted-foreground">Image Previews</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl">
+              {data?.platform?.map((platform) => (
+                <div
+                  key={platform}
+                  className="relative rounded-xl overflow-hidden shadow-md border border-muted w-full aspect-[4/3]"
+                >
+                  {/* Image that fills the card */}
+                  <Image
+                    src={uploadPreview}
+                    alt={`${platform} preview`}
+                    fill
+                    className="object-cover cursor-pointer"
+                    // onClick={() => handleImageClick(uploadPreview)}
+                  />
+
+                  {/* Platform label overlay */}
+                  <div className="absolute bottom-0 w-full bg-black/40 text-white text-sm font-medium text-center py-1">
+                    {platform}
+                  </div>
+                  <button
+                    className="absolute top-2 right-2 bg-black bg-opacity-20 p-1 rounded-full text-black group-hover:opacity-100 transition"
+                    onClick={() => setFullscreenSrc(uploadPreview)}
+                    title="View fullscreen"
+                  >
+                    <Maximize2 size={18} />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </CardContent>
+      {fullscreenSrc && (
+        <FullscreenImageViewer src={fullscreenSrc} onClose={() => setFullscreenSrc(null)} />
+      )}
     </Card>
   )
 }
