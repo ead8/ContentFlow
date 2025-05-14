@@ -41,7 +41,7 @@ export default function LoginPage() {
       
       toast({
         title: "Welcome back!",
-        description: "You&apos;ve successfully logged in.",
+        description: "You've successfully logged in",
       })
       router.push("/dashboard")
     } catch (error: any) {

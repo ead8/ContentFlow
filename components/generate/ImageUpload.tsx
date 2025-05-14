@@ -76,7 +76,6 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         description: 'Your image was successfully created with AI magic.',
       })
     } catch (error: any) {
-      console.error('Error generating image:', error)
       toast({
         variant: 'destructive',
         title: 'Generation failed 😢',
