@@ -9,6 +9,7 @@ import { Calendar } from '../ui/calendar';
 import { Switch } from '../ui/switch'; // Use ShadCN's Switch for better UI
 import { ScheduleStep, WizardFormData } from './MultiStep';
 import { createPost } from '@/lib/n8n/client';
+import { useRouter } from 'next/navigation';
 
 interface Step5ScheduleConfirmProps {
   data?: WizardFormData;
@@ -17,6 +18,7 @@ interface Step5ScheduleConfirmProps {
 }
 
 const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleConfirmProps) => {
+  const route = useRouter()
   const { toast } = useToast();
   const [autoSchedule, setAutoSchedule] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -48,6 +50,8 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
           title: 'Success! ✨',
           description: 'Your post published was successfully.',
         })
+        
+        route.push('/dashboard')
       } catch (error: any) {
         setStepData({
           schedule_at: autoSchedule ? "" : startDate?.toISOString(),

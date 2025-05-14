@@ -124,7 +124,6 @@ export async function generateContent(data: ContentGenerationRequest): Promise<C
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error("N8N Webhook Error:", errorData);
     throw new Error(`N8N webhook failed with status ${response.status}: ${errorData.message || "Unknown error"}`);
   }
 
@@ -170,9 +169,7 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
     } catch (err) {
-      console.error("Failed to parse error response:", err);
     }
     throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
   }
@@ -216,9 +213,7 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
     } catch (err) {
-      console.error("Failed to parse error response:", err);
     }
     throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
   }
@@ -281,9 +276,7 @@ export async function createPost(data: WizardFormData): Promise<string> {
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
     } catch (err) {
-      console.error("Failed to parse error response:", err);
     }
     throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
   }
@@ -291,9 +284,9 @@ export async function createPost(data: WizardFormData): Promise<string> {
   // Parse response and return the image URL
   const responseBody = await response.json();
   // const responseJson = JSON.parse(responseBody)
-  if (!responseBody.image_url) {
-    throw new Error("No image URL returned from N8N.");
+  if (!responseBody.id) {
+    throw new Error("No Id returned from N8N.");
   }
 
-  return responseBody.image_url; // Return the image URL
+  return responseBody.id; // Return the image URL
 }

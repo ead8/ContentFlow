@@ -58,7 +58,8 @@ function MultiStepWizard() {
     () =>
       Array.from({ length: 5 }, (_, i) => {
         const stepIndex = i + 1;
-        return { [stepIndex]: stepIndex === 4 }; // Step 4 (Preview) is always valid
+        // Make steps 2, 3, and 4 valid by default
+        return { [stepIndex]: stepIndex >= 2 && stepIndex <= 4 };  // Step 2, 3, 4 (Preview) is always valid
       }).reduce((acc, curr) => ({ ...acc, ...curr }), {})
   );
 

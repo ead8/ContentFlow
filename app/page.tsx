@@ -59,7 +59,7 @@ export default function Home() {
                 description="Create engaging posts optimized for each platform with the power of GPT. Generate weeks of content in minutes."
               />
               <FeatureCard 
-                icon={<Image className="h-8 w-8 text-primary" />}
+                icon={<Image className="h-8 w-8 text-primary"/>}
                 title="Image & Video Creation"
                 description="Generate stunning visuals that capture attention and drive engagement without needing design skills."
               />
