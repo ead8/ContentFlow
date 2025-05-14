@@ -100,7 +100,6 @@ Deno.serve(async (req) => {
         },
       });
 
-      console.log(`Created new Stripe customer ${newCustomer.id} for user ${user.id}`);
 
       const { error: createCustomerError } = await supabase.from('stripe_customers').insert({
         user_id: user.id,
@@ -143,7 +142,6 @@ Deno.serve(async (req) => {
 
       customerId = newCustomer.id;
 
-      console.log(`Successfully set up new customer ${customerId} with subscription record`);
     } else {
       customerId = customer.customer_id;
 
@@ -192,7 +190,6 @@ Deno.serve(async (req) => {
       cancel_url,
     });
 
-    console.log(`Created checkout session ${session.id} for customer ${customerId}`);
 
     return corsResponse({ sessionId: session.id, url: session.url });
   } catch (error: any) {
