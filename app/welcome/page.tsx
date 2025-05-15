@@ -22,6 +22,7 @@ export default function WelcomePage() {
                 const profile = await fetchLoggedinUserProfile()
                 setUserProfile(profile)
             } catch (error) {
+                console.error('Error fetching user profile:', error)
             }
         }
         fetchUserProfile()

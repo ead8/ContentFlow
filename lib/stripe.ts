@@ -47,6 +47,7 @@ export async function getActiveSubscription() {
     .maybeSingle();
 
   if (error) {
+    console.error('Error fetching subscription:', error);
     return null;
   }
 

@@ -22,6 +22,7 @@ export function QuickStatsSnapshot() {
         const data = await fetchDashboardStats()
         setStats(data)
       } catch (error) {
+        console.error('Failed to load dashboard stats:', error)
       } finally {
         setIsLoading(false)
       }
