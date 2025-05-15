@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/form'
 import { Card, CardContent } from '../ui'
 import { VideoGenerationStep, WizardFormData } from './MultiStep'
-import { generateMedia } from '@/lib/n8n/client'
+import { generateMedia, pollVideoStatus } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
+import CreditLockoutModal from '../credit/credit-lookout-modal'
 
 const videoFormSchema = z.object({
   video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
@@ -42,6 +43,8 @@ export default function VideoGeneration({
   const { toast } = useToast()
   const [videoUrl, setVideoUrl] = useState<string | null>(data?.step_3?.video_url || null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
+  
 
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
@@ -53,47 +56,60 @@ export default function VideoGeneration({
   const testVideoUrl = 'https://www.w3schools.com/html/mov_bbb.mp4' // 🔥 Mock fallback
 
   const handleGenerate = async (formData: VideoFormData) => {
-    try {
-      setIsGenerating(true)
-      setBackStepValid(false)
-
-      const generatedVideoUrl = await generateMedia({
-        prompt: formData.video_prompt,
-        media_type: 'video',
-      })
-
-      setVideoUrl(generatedVideoUrl)
-      setStepData({
-        video_prompt: formData.video_prompt,
-        video_url: generatedVideoUrl,
-      })
-      setNextStepValid(true)
-
-      toast({
-        title: 'Success! ✨',
-        description: 'Your video was generated beautifully.',
-      })
-    } catch (error: any) {
-      // 👇 Set mock fallback
-      setVideoUrl(testVideoUrl)
-      setStepData({
-        video_prompt: formData.video_prompt,
-        video_url: testVideoUrl,
-      })
-      setNextStepValid(true)
-
-      console.error('Error generating video:', error)
-      
-      toast({
-        variant: 'destructive',
-        title: 'Oops, generation failed 😓',
-        description: 'We’ve shown a mock video instead. Please try again later.',
-      })
-    } finally {
-      setIsGenerating(false)
-      setBackStepValid(true)
-    }
+  const noCredits = false; // replace with real credit logic
+  if (noCredits) {
+    setIsShowCreditLockout(true);
+    return;
   }
+
+  try {
+    setIsGenerating(true);
+    setBackStepValid(false);
+
+    /* 1️⃣ request generation */
+    const result = await generateMedia({
+      prompt: formData.video_prompt,
+      media_type: "video"
+    });
+
+    toast({
+      title: "Video queued ⏳",
+      description: "We’re processing your video. This usually takes a minute.",
+    });
+
+    /* 2️⃣ poll until ready */
+    const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
+
+    setVideoUrl(finalUrl);
+    setStepData({
+      video_prompt: formData.video_prompt,
+      video_url: finalUrl
+    });
+
+    setNextStepValid(true);
+
+    toast({
+      title: "Success! ✨",
+      description: "Your video is ready.",
+    });
+  } catch (err: any) {
+    console.error("what ahppend",err);
+
+    // optional fallback mock
+    setVideoUrl(testVideoUrl);
+
+    toast({
+      variant: "destructive",
+      title: "Generation failed",
+      description: "We’ve shown a sample video instead. Please try again later.",
+    });
+
+  } finally {
+    setIsGenerating(false);
+    setBackStepValid(true);
+    setNextStepValid(true);
+  }
+};
 
   return (
     <Card>
@@ -142,35 +158,38 @@ export default function VideoGeneration({
             </Button>
           </form>
         </Form>
-              {/* Video Preview Box */}
-        {(isGenerating || videoUrl) && (
+        {/* Video Preview Box */}
+        {(videoUrl || isGenerating) && (
           <div className="pt-4">
             <p className="block mb-2 text-sm font-medium text-muted-foreground">
-              Video Preview
+              Preview
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl">
-              {data?.platform?.map((platform, idx) => (
-                <div
-                  key={idx}
-                  className="w-full max-w-2xl aspect-video rounded-xl border border-muted-foreground/10 shadow overflow-hidden bg-muted relative flex flex-col items-center justify-center"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-12 h-12 rounded-full bg-muted-foreground/20 animate-spin border-2 border-muted-foreground/30 border-t-transparent" />
-                      <span className="text-sm text-muted-foreground mt-2">
-                        Generating video for {platform}...
-                      </span>
-                    </>
-                  ) : videoUrl ? (
-                    <video controls src={videoUrl} className="w-full h-full object-cover" />
-                  ) : null}
+            <div className="w-full max-w-2xl aspect-video rounded-xl border border-muted-foreground/10 shadow-lg overflow-hidden bg-muted relative">
+              {isGenerating ? (
+                <div className="flex flex-col items-center justify-center gap-3 w-full h-full animate-pulse">
+                  <div className="w-12 h-12 rounded-full bg-muted-foreground/20 animate-spin border-2 border-muted-foreground/30 border-t-transparent" />
+                  <span className="text-sm text-muted-foreground">
+                    Generating your video...
+                  </span>
                 </div>
-              ))}
+              ) : (
+                <video
+                  controls
+                  src={videoUrl ?? undefined}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
           </div>
         )}
       </CardContent>
-
+      <CreditLockoutModal
+        isOpen={isShowCreditLockout}
+        onClose={() => {setIsShowCreditLockout(false)}}
+        usedCredits={260}
+        totalCredits={260}
+        onUpgradeClick={() => {}}
+      />
     </Card>
   )
 }

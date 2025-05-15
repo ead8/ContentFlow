@@ -12,10 +12,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '../ui/textarea'
 
 import { ImageUploadStep, WizardFormData } from './MultiStep'
-import { generateMedia } from '@/lib/n8n/client'
+import { generateImage, generateMedia } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
 import { z } from 'zod'
 import FullscreenImageViewer from './fullScreenViewer'
+import CreditLockoutModal from '../credit/credit-lookout-modal'
 
 const imageUploadSchema = z.object({
   generationPrompt: z
@@ -35,6 +36,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   const [uploadPreview, setUploadPreview] = useState<string | null>(data?.step_2?.image_upload || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
+  const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
 
   // Initialize react-hook-form
   const form = useForm({
@@ -55,36 +57,43 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   }
 
   const onSubmit = async (formData: { generationPrompt: string }) => {
-    try {
-      setIsGenerating(true)
-      setBackStepValid(false)
-      const generatedImageUrl = await generateMedia({
-        prompt: formData.generationPrompt,
-        media_type: 'image',
-      })
+    const noCredits = false; // replace with real credit logic
+    if(noCredits) {
+      setIsShowCreditLockout(true)
+      
+    } else {
+      try {
+        setIsGenerating(true)
+        setBackStepValid(false)
+  
+        const generatedImageUrl = await generateImage({
+          prompt: formData.generationPrompt
+        })
+  
+        setUploadPreview(generatedImageUrl)
+        setStepData({
+          prompt: formData.generationPrompt,
+          image_source: 'generated',
+          image_upload: generatedImageUrl,
+        })
+  
+        toast({
+          title: '✨ Image generated!',
+          description: 'Your image was successfully created with AI magic.',
+        })
+      } catch (error: any) {
+        console.error('Error generating image:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Generation failed 😢',
+          description: error.message || 'There was an error generating your image.',
+        })
+      } finally {
+        setIsGenerating(false)
+        setBackStepValid(true)
+        setNextStepValid(true)
+      }
 
-      setUploadPreview(generatedImageUrl)
-      setStepData({
-        prompt: formData.generationPrompt,
-        image_source: 'generated',
-        image_upload: generatedImageUrl,
-      })
-      setNextStepValid(true)
-
-      toast({
-        title: '✨ Image generated!',
-        description: 'Your image was successfully created with AI magic.',
-      })
-    } catch (error: any) {
-      console.error('Error generating image:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Generation failed 😢',
-        description: error.message || 'There was an error generating your image.',
-      })
-    } finally {
-      setIsGenerating(false)
-      setBackStepValid(true)
     }
   }
 
@@ -189,6 +198,14 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
       {fullscreenSrc && (
         <FullscreenImageViewer src={fullscreenSrc} onClose={() => setFullscreenSrc(null)} />
       )}
+
+      <CreditLockoutModal
+        isOpen={isShowCreditLockout}
+        onClose={() => {setIsShowCreditLockout(false)}}
+        usedCredits={260}
+        totalCredits={260}
+        onUpgradeClick={() => {}}
+      />
     </Card>
   )
 }
