@@ -3,9 +3,10 @@ interface NavigationProps {
   nextStep: () => void;
   prevStep: () => void;
   isNextDisabled: boolean;
+  isBackDisabled: boolean;
 }
 
-export function Navigation({ step, nextStep, prevStep, isNextDisabled }: NavigationProps) {
+export function Navigation({ step, nextStep, prevStep, isNextDisabled, isBackDisabled }: NavigationProps) {
 
   const getTooltipMessage = () => {
   switch (step) {
@@ -29,20 +30,24 @@ export function Navigation({ step, nextStep, prevStep, isNextDisabled }: Navigat
           <button
             className="bg-gray-300 text-gray-700 py-2 px-4 rounded disabled:opacity-50"
             onClick={prevStep}
+            disabled={isBackDisabled}
           >
             Back
           </button>
         )
       }
-
-      <button
-        className="bg-primary text-white py-2 px-4 rounded disabled:opacity-50"
-        onClick={nextStep}
-        disabled={isNextDisabled}
-        title={isNextDisabled ? getTooltipMessage() : ''}
-      >
-        {step === 5 ? 'Publish' : 'Next'}
-      </button>
+      {
+        step < 5 && (
+          <button
+            className="bg-primary text-white py-2 px-4 rounded disabled:opacity-50"
+            onClick={nextStep}
+            disabled={isNextDisabled}
+            title={isNextDisabled ? getTooltipMessage() : ''}
+          >
+            Next
+          </button>
+        )
+      }
     </div>
   );
 }

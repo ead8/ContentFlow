@@ -1,5 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+// @ts-expect-error Deno 'npm:' import – safe in Edge Function
 import Stripe from 'npm:stripe@17.7.0';
+// @ts-expect-error Deno 'npm:' import – safe in Edge Function
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
@@ -100,7 +102,6 @@ Deno.serve(async (req) => {
         },
       });
 
-      console.log(`Created new Stripe customer ${newCustomer.id} for user ${user.id}`);
 
       const { error: createCustomerError } = await supabase.from('stripe_customers').insert({
         user_id: user.id,
@@ -109,13 +110,13 @@ Deno.serve(async (req) => {
 
       if (createCustomerError) {
         console.error('Failed to save customer information in the database', createCustomerError);
-
+        
         // Try to clean up both the Stripe customer and subscription record
         try {
           await stripe.customers.del(newCustomer.id);
           await supabase.from('stripe_subscriptions').delete().eq('customer_id', newCustomer.id);
         } catch (deleteError) {
-          console.error('Failed to clean up after customer mapping error:', deleteError);
+           console.error('Failed to clean up after customer mapping error:', deleteError);
         }
 
         return corsResponse({ error: 'Failed to create customer mapping' }, 500);
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
 
         if (createSubscriptionError) {
           console.error('Failed to save subscription in the database', createSubscriptionError);
-
+          
           // Try to clean up the Stripe customer since we couldn't create the subscription
           try {
             await stripe.customers.del(newCustomer.id);
@@ -143,7 +144,6 @@ Deno.serve(async (req) => {
 
       customerId = newCustomer.id;
 
-      console.log(`Successfully set up new customer ${customerId} with subscription record`);
     } else {
       customerId = customer.customer_id;
 
@@ -192,7 +192,6 @@ Deno.serve(async (req) => {
       cancel_url,
     });
 
-    console.log(`Created checkout session ${session.id} for customer ${customerId}`);
 
     return corsResponse({ sessionId: session.id, url: session.url });
   } catch (error: any) {

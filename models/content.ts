@@ -26,3 +26,8 @@ export type PlatformPost = {
   title?: string;
   description?: string;
 };
+
+export type MediaGenerationRequest = {
+  prompt: string;
+  media_type: string
+}
