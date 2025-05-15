@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/client';
 import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest } from '@/models/content';
 import { use } from 'react';
 
-const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
-const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
+const N8N_API_URL = process.env.NEXT_PRIVATE_N8N_API_URL;
+const N8N_API_KEY = process.env.NEXT_PRIVATE_N8N_API_KEY;
 
 if (!N8N_API_URL || !N8N_API_KEY) {
   throw new Error('N8N environment variables are required');
@@ -107,7 +107,7 @@ export async function generateContent(data: ContentGenerationRequest): Promise<C
     throw new Error('Not authenticated');
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_CONTENT_GENERATION_WEBHOOK_URL;
+  const n8nWebhookUrl = process.env.NEXT_PRIVATE_N8N_CONTENT_GENERATION_WEBHOOK_URL;
 
   if (!n8nWebhookUrl) {
     throw new Error("N8N webhook URL is not defined in environment variables.");
@@ -151,7 +151,7 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
     throw new Error("Not authenticated");
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_IMAGE_GENERATION_WEBHOOK_URL;
+  const n8nWebhookUrl = process.env.NEXT_PRIVATE_N8N_IMAGE_GENERATION_WEBHOOK_URL;
   if (!n8nWebhookUrl) {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
@@ -195,7 +195,7 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
     throw new Error("Not authenticated");
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_MEDIA_GENERATION_WEBHOOK_URL;
+  const n8nWebhookUrl = process.env.NEXT_PRIVATE_N8N_MEDIA_GENERATION_WEBHOOK_URL;
   if (!n8nWebhookUrl) {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
@@ -239,7 +239,7 @@ export async function createPost(data: WizardFormData): Promise<string> {
     throw new Error("Not authenticated");
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_CREATE_POST_WEBHOOK_URL;
+  const n8nWebhookUrl = process.env.NEXT_PRIVATE_N8N_CREATE_POST_WEBHOOK_URL;
   if (!n8nWebhookUrl) {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
