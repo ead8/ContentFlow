@@ -2,8 +2,8 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'npm:stripe@17.7.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
-const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
-const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
+const stripeSecret = Deno.env.get('NEXT_PRIVATE_STRIPE_SECRET_KEY')!;
+const stripeWebhookSecret = Deno.env.get('NEXT_PRIVATE_STRIPE_WEBHOOK_SECRET')!;
 const stripe = new Stripe(stripeSecret, {
   appInfo: {
     name: 'Bolt Integration',
