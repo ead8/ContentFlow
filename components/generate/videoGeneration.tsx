@@ -56,7 +56,7 @@ export default function VideoGeneration({
   const testVideoUrl = 'https://www.w3schools.com/html/mov_bbb.mp4' // 🔥 Mock fallback
 
   const handleGenerate = async (formData: VideoFormData) => {
-  const noCredits = false; // replace with real credit logic
+  const noCredits = true; // replace with real credit logic
   if (noCredits) {
     setIsShowCreditLockout(true);
     return;
