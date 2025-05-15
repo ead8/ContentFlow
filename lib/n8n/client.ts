@@ -1,7 +1,6 @@
 import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
 import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
-import { use } from 'react';
 
 const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
 const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
