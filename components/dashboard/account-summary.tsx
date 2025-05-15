@@ -46,7 +46,7 @@ export function AccountSummary() {
         const data = await fetchAccountSummary()
         setAccountData(data)
       } catch (error) {
-        console.error('Failed to load account summary:', error)
+        console.error('Failed to load account summary:')
       } finally {
         setIsLoading(false)
       }
