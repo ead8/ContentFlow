@@ -12,6 +12,7 @@ import { generateContent } from "@/lib/n8n/client";
 import { MultiSelect } from "../multiselect";
 import { ContentGenerationResponse } from "@/models/content";
 import ContentPreviewComponent from "./generatedContentPreview";
+import { WizardFormData } from "./MultiStep";
 
 const contentFormSchema = z.object({
   platform: z.array(z.enum(['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'tiktok'])).min(1),
@@ -23,30 +24,37 @@ const contentFormSchema = z.object({
 })
 
 interface CampaignIdeaProps {
-    data?: ContentGenerationResponse;    
-    setStepData: (stepData: ContentGenerationResponse) => void;
+    data?: WizardFormData;    
+    setStepData: (
+      topic: string, 
+      platform: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">,
+      tone: "professional" | "casual" | "enthusiastic" | "informative",
+      audience: string,
+      stepData: ContentGenerationResponse
+    ) => void;
     setNextStepValid: (isValid: boolean) => void;
+    setBackStepValid: (isValid: boolean) => void;
 }
 
-const CampaignIdea = ({data, setStepData, setNextStepValid}: CampaignIdeaProps) => {
+const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: CampaignIdeaProps) => {
      const { toast } = useToast()
      const [isGeneratingText, setIsGeneratingText] = useState(false)
-     const [generatedContent, setGeneratedContent] = useState<ContentGenerationResponse | null>(data || null)
+     const [generatedContent, setGeneratedContent] = useState<ContentGenerationResponse | null>(data?.step_1 || null)
 
       const contentForm = useForm<z.infer<typeof contentFormSchema>>({
         resolver: zodResolver(contentFormSchema),
           defaultValues: {
-          platform: [],
-          prompt: "",
-          tone: "professional",
-          audience: "",
+          platform: data?.platform ?? [],
+          prompt: data?.topic ?? "",
+          tone: data?.tone ?? "professional",
+          audience: data?.audience ?? "",
           },
       })
 
       const onContentSubmit = async (values: z.infer<typeof contentFormSchema>) => {
         setIsGeneratingText(true)
         setGeneratedContent(null)
-    
+        setBackStepValid(false)
         try {
           const result = await generateContent({
             platform: values.platform,
@@ -56,7 +64,13 @@ const CampaignIdea = ({data, setStepData, setNextStepValid}: CampaignIdeaProps) 
           })
 
           setGeneratedContent(result);
-          setStepData(result);
+          setStepData(
+            values.prompt,
+            values.platform,
+            values.tone,
+            values.audience || "",
+            result
+          );
           setNextStepValid(true);
 
           toast({
@@ -72,6 +86,7 @@ const CampaignIdea = ({data, setStepData, setNextStepValid}: CampaignIdeaProps) 
           });
         } finally {
           setIsGeneratingText(false);
+          setBackStepValid(true)
         }
       };
 

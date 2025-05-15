@@ -21,7 +21,6 @@ export function CreditUsageTracker() {
         const data = await fetchCreditUsage()
         setCredits(data)
       } catch (error) {
-        console.error('Failed to load credit usage:', error)
       } finally {
         setIsLoading(false)
       }
