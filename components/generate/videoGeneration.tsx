@@ -82,6 +82,8 @@ export default function VideoGeneration({
       })
       setNextStepValid(true)
 
+      console.error('Error generating video:', error)
+      
       toast({
         variant: 'destructive',
         title: 'Oops, generation failed 😓',
