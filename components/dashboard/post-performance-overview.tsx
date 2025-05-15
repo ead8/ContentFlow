@@ -35,6 +35,7 @@ export function PostPerformanceOverview() {
         const data = await fetchPostPerformance()
         setPosts(data)
       } catch (error) {
+        console.error('Failed to load post performance:', error)
       } finally {
         setIsLoading(false)
       }
