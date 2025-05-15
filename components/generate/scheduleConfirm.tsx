@@ -29,7 +29,7 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
         setIsPublishing(true)
         setBackStepValid(false)
   
-        await createPost({
+        const postId = await createPost({
           ...data,
           step_5: {
             schedule_at: autoSchedule ? "" : startDate?.toISOString(),
@@ -51,7 +51,7 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
           description: 'Your post published was successfully.',
         })
         
-        route.push('/dashboard')
+        route.push(`/posts${postId}`)
       } catch (error: any) {
         setStepData({
           schedule_at: autoSchedule ? "" : startDate?.toISOString(),
