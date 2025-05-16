@@ -45,7 +45,6 @@ export default function VideoGeneration({
   const [isGenerating, setIsGenerating] = useState(false)
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
   
-
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
     defaultValues: {
@@ -53,10 +52,8 @@ export default function VideoGeneration({
     },
   })
 
-  const testVideoUrl = 'https://www.w3schools.com/html/mov_bbb.mp4' // 🔥 Mock fallback
-
   const handleGenerate = async (formData: VideoFormData) => {
-  const noCredits = true; // replace with real credit logic
+  const noCredits = false; // replace with real credit logic
   if (noCredits) {
     setIsShowCreditLockout(true);
     return;
@@ -92,16 +89,14 @@ export default function VideoGeneration({
       title: "Success! ✨",
       description: "Your video is ready.",
     });
-  } catch (err: any) {
-    console.error("what ahppend",err);
 
-    // optional fallback mock
-    setVideoUrl(testVideoUrl);
+  } catch (err: any) {
+    console.error("Video Pulling Error",err);
 
     toast({
       variant: "destructive",
-      title: "Generation failed",
-      description: "We’ve shown a sample video instead. Please try again later.",
+      title: "Oops! The video didn’t make it",
+      description: "Video is taking longer than expected. Please try again in a few minutes.",
     });
 
   } finally {

@@ -57,7 +57,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   }
 
   const onSubmit = async (formData: { generationPrompt: string }) => {
-    const noCredits = true; // replace with real credit logic
+    const noCredits = false; // replace with real credit logic
     if(noCredits) {
       setIsShowCreditLockout(true)
       
@@ -93,7 +93,6 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         setBackStepValid(true)
         setNextStepValid(true)
       }
-
     }
   }
 

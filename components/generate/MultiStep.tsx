@@ -37,8 +37,8 @@ export interface ScheduleStep {
 export interface WizardFormData {
   user_id?: string;
   topic?: string;
-  platform?: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">;
-  tone?: "professional" | "casual" | "enthusiastic" | "informative";
+  platform?: Array<"LinkedIn" | "Instagram" | "X-Twitter" | "YouTube_Shorts" | "Facebook" | "Tiktok">;
+  tone?: "Professional" | "Casual" | "Enthusiastic" | "Informative";
   audience?: string;
   step_1?: ContentGenerationResponse;
   step_2?: ImageUploadStep;
@@ -96,8 +96,8 @@ function MultiStepWizard() {
 
   const handleSetCampaignIdeaData = (
     topic: string, 
-    platform: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">,
-    tone: "professional" | "casual" | "enthusiastic" | "informative",
+    platform: Array<"LinkedIn" | "Instagram" | "X-Twitter" | "YouTube_Shorts" | "Facebook" | "Tiktok">,
+    tone: "Professional" | "Casual" | "Enthusiastic" | "Informative",
     audience: string,
     data: ContentGenerationResponse
 
