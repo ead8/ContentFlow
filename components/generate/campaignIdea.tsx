@@ -15,11 +15,11 @@ import ContentPreviewComponent from "./generatedContentPreview";
 import { WizardFormData } from "./MultiStep";
 
 const contentFormSchema = z.object({
-  platform: z.array(z.enum(['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'tiktok'])).min(1),
+  platform: z.array(z.enum(['LinkedIn', 'Instagram', 'X-Twitter', 'YouTube_Shorts', 'Facebook', 'Tiktok'])).min(1),
   prompt: z.string().min(5, {
     message: "Prompt must be at least 5 characters.",
   }),
-  tone: z.enum(["professional", "casual", "enthusiastic", "informative"]),
+  tone: z.enum(["Professional", "Casual", "Enthusiastic", "Informative"]),
   audience: z.string().optional(),
 })
 
@@ -27,8 +27,8 @@ interface CampaignIdeaProps {
     data?: WizardFormData;    
     setStepData: (
       topic: string, 
-      platform: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">,
-      tone: "professional" | "casual" | "enthusiastic" | "informative",
+      platform: Array<"LinkedIn" | "Instagram" | "X-Twitter" | "YouTube_Shorts" | "Facebook" | "Tiktok">,
+      tone: "Professional" | "Casual" | "Enthusiastic" | "Informative",
       audience: string,
       stepData: ContentGenerationResponse
     ) => void;
@@ -46,7 +46,7 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
           defaultValues: {
           platform: data?.platform ?? [],
           prompt: data?.topic ?? "",
-          tone: data?.tone ?? "professional",
+          tone: data?.tone ?? "Professional",
           audience: data?.audience ?? "",
           },
       })
@@ -104,12 +104,12 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
                         <FormControl>
                             <MultiSelect
                             options={[
-                                { label: 'LinkedIn', value: 'linkedin' },
-                                { label: 'Instagram', value: 'instagram' },
-                                { label: 'Twitter', value: 'twitter' },
-                                { label: 'YouTube', value: 'youtube' },
-                                { label: 'Facebook', value: 'facebook' },
-                                { label: 'Tiktok', value: 'tiktok' },
+                                { label: 'LinkedIn', value: 'LinkedIn' },
+                                { label: 'Instagram', value: 'Instagram' },
+                                { label: 'X-Twitter', value: 'X-Twitter' },
+                                { label: 'YouTube_Shorts', value: 'YouTube_Shorts' },
+                                { label: 'Facebook', value: 'Facebook' },
+                                { label: 'Tiktok', value: 'Tiktok' },
                             ]}
                             value={field.value || []}
                             onChange={field.onChange}
@@ -155,10 +155,10 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
                               </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                              <SelectItem value="professional">Professional</SelectItem>
-                              <SelectItem value="casual">Casual</SelectItem>
-                              <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                              <SelectItem value="informative">Informative</SelectItem>
+                              <SelectItem value="Professional">Professional</SelectItem>
+                              <SelectItem value="Casual">Casual</SelectItem>
+                              <SelectItem value="Enthusiastic">Enthusiastic</SelectItem>
+                              <SelectItem value="Informative">Informative</SelectItem>
                               </SelectContent>
                           </Select>
                           <FormMessage />
