@@ -31,3 +31,9 @@ export type MediaGenerationRequest = {
   prompt: string;
   media_type: string
 }
+
+
+export interface MediaGenerationResult {
+  mediaId: string;
+  jobId: string;
+}
