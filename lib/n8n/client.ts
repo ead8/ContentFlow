@@ -1,7 +1,6 @@
 import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
-import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest } from '@/models/content';
-import { use } from 'react';
+import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
 
 const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
 const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
@@ -187,20 +186,19 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
   return responseBody.image_url; // Return the image URL
 }
 
-export async function generateMedia(data: MediaGenerationRequest): Promise<string> {
+export async function generateMedia(request: MediaGenerationRequest): Promise<MediaGenerationResult> {
   const supabase = createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Check if the session exists (user is authenticated)
   if (!session) {
-    throw new Error("Not authenticated");
+    throw new Error("You must be logged in to generate media.");
   }
 
   const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_MEDIA_GENERATION_WEBHOOK_URL;
   if (!n8nWebhookUrl) {
-    throw new Error("N8N webhook URL is not defined in environment variables.");
+    throw new Error("Missing N8N webhook URL in environment variables.");
   }
 
   const response = await fetch(n8nWebhookUrl, {
@@ -208,7 +206,7 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(request),
   });
 
   if (!response.ok) {
@@ -220,18 +218,22 @@ export async function generateMedia(data: MediaGenerationRequest): Promise<strin
     } catch (err) {
       console.error("Failed to parse error response:", err);
     }
-    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+    throw new Error(`Media generation failed: ${errorMessage}`);
   }
 
-  // Parse response and return the image URL
   const responseBody = await response.json();
-  // const responseJson = JSON.parse(responseBody)
-  if (!responseBody.image_url) {
-    throw new Error("No image URL returned from N8N.");
+
+  if (!responseBody?.success || !responseBody?.data) {
+    throw new Error("Invalid response from media generation server.");
   }
 
-  return responseBody.image_url; // Return the image URL
+
+  return {
+    mediaId: responseBody.data.media_id,
+    jobId: responseBody.data.job_id
+  };
 }
+
 
 export async function createPost(data: WizardFormData): Promise<string> {
   const supabase = createClient();
@@ -294,4 +296,43 @@ export async function createPost(data: WizardFormData): Promise<string> {
     throw new Error("No Id returned from N8N.");
   }
   return responseBody.id; // Return the image URL
+}
+
+
+export async function pollVideoStatus(
+  jobId: string,
+  mediaId: string,
+  { interval = 7000, maxAttempts = 40 } = {}
+): Promise<string> {
+  const STATUS_WEBHOOK = process.env.NEXT_PUBLIC_N8N_VIDEO_STATUS_WEBHOOK_URL!;
+  let attempt = 0;
+
+  while (attempt < maxAttempts) {
+    const res = await fetch(STATUS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, media_id: mediaId }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Status check request failed");
+    }
+
+    const json = await res.json();
+
+    const [video] = json; // Assumes array of one item
+
+    if (video.status === "succeed" && video.video_url) {
+      return video.video_url;
+    }
+
+    if (video.status === "failed") {
+      throw new Error("Video generation failed.");
+    }
+
+    await new Promise((r) => setTimeout(r, interval));
+    attempt += 1;
+  }
+
+  throw new Error("Timed out waiting for video generation.");
 }
