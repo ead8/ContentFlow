@@ -319,14 +319,13 @@ export async function pollVideoStatus(
     }
 
     const json = await res.json();
+    // const [video] = json; // Assumes array of one item
 
-    const [video] = json; // Assumes array of one item
-
-    if (video.status === "succeed" && video.video_url) {
-      return video.video_url;
+    if (json.status === "succeed" && json.video_url) {
+      return json.video_url;
     }
 
-    if (video.status === "failed") {
+    if (json.status === "failed") {
       throw new Error("Video generation failed.");
     }
 
