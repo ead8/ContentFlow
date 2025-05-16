@@ -134,7 +134,7 @@ const PostDetail = ({ postId }: { postId?: number }) => {
   const [activeTab, setActiveTab] = useState<string>(availablePlatforms[0] || "linkedin")
 
   const handleBack = () => {
-    router.back()
+    router.push("/posts")
   }
 
   return (

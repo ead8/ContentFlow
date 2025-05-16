@@ -161,7 +161,7 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({...data, user_id: session.user.id}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -206,7 +206,7 @@ export async function generateMedia(request: MediaGenerationRequest): Promise<Me
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({...request, user_id: session.user.id}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -250,7 +250,6 @@ export async function createPost(data: WizardFormData): Promise<string> {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
 
-  console.log("Create Post Data", data);
   const {
     user_id,
     topic,
@@ -274,6 +273,9 @@ export async function createPost(data: WizardFormData): Promise<string> {
     platform_variants[p] = {
       image: imageUrl,
       video: videoUrl,
+      video_prompt: step_3?.video_prompt,
+      image_prompt: step_2?.prompt,
+      source: step_2?.image_source,
       post: platformPost.post,
       text: platformPost.post,
       caption: platformPost.caption,
@@ -311,11 +313,12 @@ export async function createPost(data: WizardFormData): Promise<string> {
 
   // Parse response and return the image URL
   const responseBody = await response.json();
-  if (!responseBody.id) {
+ 
+  if (!responseBody.success || !responseBody.data) {
     throw new Error("No Id returned from N8N.");
   }
 
-  return responseBody.id; // Return the image URL
+  return responseBody.data.id; // Return the image URL
 }
 
 export async function pollVideoStatus(

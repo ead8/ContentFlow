@@ -1,5 +1,5 @@
 import { createClient } from '../supabase/client'
-import { OnboardingType, UserProfile } from '@/models/user'
+import { CreditUsage, OnboardingType, UserProfile } from '@/models/user'
 
 export async function handleOnboarding(onboardingData: OnboardingType): Promise<boolean> {
   const supabase = createClient()
@@ -51,4 +51,27 @@ export async function fetchLoggedinUserProfile(): Promise<UserProfile> {
     }
     
     return data as UserProfile
+}
+
+
+export async function fetchCreditUsage(): Promise<CreditUsage> {
+    const supabase = createClient()
+    const { data: { session }} = await supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error('User is not authenticated')
+    }
+
+    const { data, error } = await supabase
+    .from('usage')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .single()
+    
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data as CreditUsage
 }

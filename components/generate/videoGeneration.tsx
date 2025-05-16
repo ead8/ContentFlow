@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, VideoIcon } from 'lucide-react'
+import { Loader2, Sparkles, VideoIcon } from 'lucide-react'
 import {
   FormField,
   FormItem,
@@ -20,6 +20,8 @@ import { VideoGenerationStep, WizardFormData } from './MultiStep'
 import { generateMedia, pollVideoStatus } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
 import CreditLockoutModal from '../credit/credit-lookout-modal'
+import { CreditUsage } from '@/models/user'
+import { fetchCreditUsage } from '@/lib/api/supabase'
 
 const videoFormSchema = z.object({
   video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
@@ -44,6 +46,8 @@ export default function VideoGeneration({
   const [videoUrl, setVideoUrl] = useState<string | null>(data?.step_3?.video_url || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
+  const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
+  const [isLoadingCredits, setIsLoadingCredits] = useState(true)
   
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
@@ -90,6 +94,9 @@ export default function VideoGeneration({
       description: "Your video is ready.",
     });
 
+    // Fetch updated credit usage after generation
+    loadCreditUsage()
+
   } catch (err: any) {
     console.error("Video Pulling Error",err);
 
@@ -106,8 +113,45 @@ export default function VideoGeneration({
   }
 };
 
+
+ const loadCreditUsage = async () => {
+    try {
+      setIsLoadingCredits(true)
+      const usage = await fetchCreditUsage()
+      setCreditUsage(usage)
+    } catch (error) {
+      console.error("Failed to load credit usage:", error)
+    } finally {
+      setIsLoadingCredits(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCreditUsage()
+  }, [])
+
+
   return (
     <Card>
+      {/* Credit Balance Display */}
+      <div className="flex justify-between items-center bg-muted/30 p-3 rounded-t-l-lg rounded-t-r-lg border border-muted">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-pink-500" />
+          <span className="text-sm font-medium">Video Credits</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isLoadingCredits ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : creditUsage ? (
+            <span className="text-sm font-bold">
+              {creditUsage.total_video_credits - creditUsage.video_credits_used}{" "}
+              <span className="text-muted-foreground font-normal">/ {creditUsage.total_video_credits} remaining</span>
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">Unable to load credits</span>
+          )}
+        </div>
+      </div>
       <CardContent className="pt-6 space-y-6">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <VideoIcon className="w-5 h-5 text-primary" />
