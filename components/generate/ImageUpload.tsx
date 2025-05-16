@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UploadCloud, Sparkles, Maximize2 } from 'lucide-react'
+import { UploadCloud, Sparkles, Maximize2, Loader2 } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -17,6 +17,8 @@ import { useToast } from '@/hooks/use-toast'
 import { z } from 'zod'
 import FullscreenImageViewer from './fullScreenViewer'
 import CreditLockoutModal from '../credit/credit-lookout-modal'
+import { CreditUsage } from '@/models/user'
+import { fetchCreditUsage } from '@/lib/api/supabase'
 
 const imageUploadSchema = z.object({
   generationPrompt: z
@@ -37,6 +39,8 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   const [isGenerating, setIsGenerating] = useState(false)
   const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
+  const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
+  const [isLoadingCredits, setIsLoadingCredits] = useState(true)
 
   // Initialize react-hook-form
   const form = useForm({
@@ -81,6 +85,9 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
           title: '✨ Image generated!',
           description: 'Your image was successfully created with AI magic.',
         })
+
+        loadCreditUsage()
+
       } catch (error: any) {
         console.error('Error generating image:', error)
         toast({
@@ -96,8 +103,43 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
     }
   }
 
+  const loadCreditUsage = async () => {
+      try {
+        setIsLoadingCredits(true)
+        const usage = await fetchCreditUsage()
+        setCreditUsage(usage)
+      } catch (error) {
+        console.error("Failed to load credit usage:", error)
+      } finally {
+        setIsLoadingCredits(false)
+      }
+  }
+
+  useEffect(() => {
+    loadCreditUsage()
+  }, [])
+
   return (
     <Card>
+      {/* Credit Balance Display */}
+      <div className="flex justify-between items-center bg-muted/30 p-3 rounded-t-l-lg rounded-t-r-lg border border-muted">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-pink-500" />
+          <span className="text-sm font-medium">Image Credits</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isLoadingCredits ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : creditUsage ? (
+            <span className="text-sm font-bold">
+              {creditUsage.total_image_credits - creditUsage.image_credits_used}{" "}
+              <span className="text-muted-foreground font-normal">/ {creditUsage.total_image_credits} remaining</span>
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">Unable to load credits</span>
+          )}
+        </div>
+      </div>
       <CardContent className="pt-6 space-y-8">
         {/* Upload Section */}
         <div>

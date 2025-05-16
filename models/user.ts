@@ -12,3 +12,15 @@ export type OnboardingType = {
     post_frequency: string
     start_date: string | null
 }
+
+
+export type CreditUsage = {
+    id: string
+    user_id: string
+    image_credits_used: number
+    video_credits_used: number,
+    total_image_credits: number,
+    total_video_credits: number,
+    locked_out: boolean,
+    trial_expiry: string,
+}
