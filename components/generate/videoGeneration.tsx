@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Sparkles, VideoIcon } from 'lucide-react'
+import { Loader2, RefreshCcw, Sparkles, VideoIcon } from 'lucide-react'
 import {
   FormField,
   FormItem,
@@ -148,7 +148,7 @@ export default function VideoGeneration({
               <span className="text-muted-foreground font-normal">/ {creditUsage.total_video_credits} remaining</span>
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground">Unable to load credits</span>
+            <span className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCcw className='w-4 h-4 cursor-pointer text-primary' onClick={() => loadCreditUsage()}/>Unable to load credits</span>
           )}
         </div>
       </div>

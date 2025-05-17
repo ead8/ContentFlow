@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UploadCloud, Sparkles, Maximize2, Loader2 } from 'lucide-react'
+import { UploadCloud, Sparkles, Maximize2, Loader2, RefreshCcw } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '../ui/textarea'
 
 import { ImageUploadStep, WizardFormData } from './MultiStep'
-import { generateImage, generateMedia } from '@/lib/n8n/client'
+import { generateImage } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
 import { z } from 'zod'
 import FullscreenImageViewer from './fullScreenViewer'
@@ -136,7 +136,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
               <span className="text-muted-foreground font-normal">/ {creditUsage.total_image_credits} remaining</span>
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground">Unable to load credits</span>
+            <span className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCcw className='w-4 h-4 cursor-pointer text-primary' onClick={() => loadCreditUsage()}/>Unable to load credits</span>
           )}
         </div>
       </div>
