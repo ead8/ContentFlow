@@ -146,7 +146,7 @@ const SignUpForm = () => {
           {/* Signup Link */}
           <div className="text-center text-sm text-gray-600">
             Already have an account?{" "}
-            <Link href="/signin" className="text-primary hover:underline">
+            <Link href="/login" className="text-primary hover:underline">
               Sign In
             </Link>
           </div>

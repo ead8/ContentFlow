@@ -99,7 +99,7 @@ export default function SetPasswordForm() {
         </form>
       </Form>
       <p className="text-sm text-gray-400 self-center">
-        Already have an account? <a href="/signin" className="text-blue-400 font-medium">Sign In</a>
+        Already have an account? <a href="/login" className="text-blue-400 font-medium">Sign In</a>
       </p>
     </div>
   );
