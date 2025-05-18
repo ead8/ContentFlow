@@ -51,7 +51,7 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
           description: 'Your post published was successfully.',
         })
         
-        route.push(`/posts${postId}`)
+        route.push(`/posts/${postId}`)
       } catch (error: any) {
         setStepData({
           schedule_at: autoSchedule ? "" : startDate?.toISOString(),

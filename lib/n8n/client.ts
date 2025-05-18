@@ -161,7 +161,7 @@ export async function generateImage(data: ImageUploadStep): Promise<string> {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({...data, user_id: session.user.id}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -206,7 +206,7 @@ export async function generateMedia(request: MediaGenerationRequest): Promise<Me
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({...request, user_id: session.user.id}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -234,7 +234,6 @@ export async function generateMedia(request: MediaGenerationRequest): Promise<Me
   };
 }
 
-
 export async function createPost(data: WizardFormData): Promise<string> {
   const supabase = createClient();
   const {
@@ -251,32 +250,54 @@ export async function createPost(data: WizardFormData): Promise<string> {
     throw new Error("N8N webhook URL is not defined in environment variables.");
   }
 
+  const {
+    user_id,
+    topic,
+    tone,
+    platform,
+    step_1,
+    step_2,
+    step_3,
+    step_5,
+  } = data;
+
+  const imageUrl = step_2?.image_upload
+  const videoUrl = step_3?.video_url
+  const scheduleAt = step_5?.schedule_at
+
+  const platform_variants: Record<string, any> = {};
+
+  platform?.forEach((p) => {
+    const platformPost = step_1?.platform_posts?.[p] ?? {};
+
+    platform_variants[p] = {
+      image: imageUrl,
+      video: videoUrl,
+      video_prompt: step_3?.video_prompt,
+      image_prompt: step_2?.prompt,
+      source: step_2?.image_source,
+      post: platformPost.post,
+      text: platformPost.post,
+      caption: platformPost.caption,
+      hashtags: (platformPost.hashtags || []).join(" "),
+      call_to_action: platformPost.call_to_action,
+      schedule_at: scheduleAt,
+    };
+  });
+
   const response = await fetch(n8nWebhookUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      user_id: data.user_id,
-      workspace_id: "1b447a55-5536-43fc-a712-085a687cd3a6",
-      topic: data.topic,
-      tone: data.tone,
-      platforms: data.platform,
-      image: {
-        source: data.step_2?.image_source,
-        prompt: data.step_2?.prompt,
-        url: data.step_2?.image_upload,
-      },
-      video: {
-        source: "Kling_generated",
-        prompt: data.step_3?.video_prompt,
-        url: data.step_3?.video_url,
-      },
-      content: data.step_1?.platform_posts,
-      schedule_at: data.step_5?.schedule_at,
-      status: data.step_5?.status,
-    }),
-  });
+      user_id,
+      topic,
+      tone,
+      platform_variants,
+      status: "Draft"
+    })
+  })
 
   if (!response.ok) {
     let errorMessage = "Unknown error";
@@ -292,46 +313,61 @@ export async function createPost(data: WizardFormData): Promise<string> {
 
   // Parse response and return the image URL
   const responseBody = await response.json();
-  if (!responseBody.id) {
+ 
+  if (!responseBody.success || !responseBody.data) {
     throw new Error("No Id returned from N8N.");
   }
-  return responseBody.id; // Return the image URL
-}
 
+  return responseBody.data.id; // Return the image URL
+}
 
 export async function pollVideoStatus(
   jobId: string,
   mediaId: string,
-  { interval = 7000, maxAttempts = 40 } = {}
+  {
+    maxAttempts = 40,
+    initialInterval = 3000, // 3 seconds
+    slowInterval = 7000,   // 7 seconds after 1 minute
+    switchAfterMs = 60000,  // 1 minute
+  } = {}
 ): Promise<string> {
   const STATUS_WEBHOOK = process.env.NEXT_PUBLIC_N8N_VIDEO_STATUS_WEBHOOK_URL!;
   let attempt = 0;
+  const startTime = Date.now();
 
   while (attempt < maxAttempts) {
-    const res = await fetch(STATUS_WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: jobId, media_id: mediaId }),
-    });
+    try {
+      const res = await fetch(STATUS_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, media_id: mediaId }),
+      });
 
-    if (!res.ok) {
-      throw new Error("Status check request failed");
+      if (!res.ok) {
+        console.error("Status check failed:", res.status, res.statusText);
+        throw new Error("We couldn't check the video right now. Please try again.");
+      }
+
+      const json = await res.json();
+
+      if (json.status === "succeed" && json.video_url) {
+        return json.video_url;
+      }
+
+      if (json.status === "failed") {
+        throw new Error("Video generation failed. Please try again.");
+      }
+
+      const now = Date.now();
+      const waitTime = now - startTime < switchAfterMs ? initialInterval : slowInterval;
+
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      attempt++;
+    } catch (err: any) {
+      console.error("Polling error:", err);
+      throw new Error("Something went wrong. Please try again later.");
     }
-
-    const json = await res.json();
-    // const [video] = json; // Assumes array of one item
-
-    if (json.status === "succeed" && json.video_url) {
-      return json.video_url;
-    }
-
-    if (json.status === "failed") {
-      throw new Error("Video generation failed.");
-    }
-
-    await new Promise((r) => setTimeout(r, interval));
-    attempt += 1;
   }
 
-  throw new Error("Timed out waiting for video generation.");
+  throw new Error("Video is taking longer than expected. Please try again in a few minutes.");
 }
