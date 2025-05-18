@@ -37,8 +37,8 @@ export interface ScheduleStep {
 export interface WizardFormData {
   user_id?: string;
   topic?: string;
-  platform?: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">;
-  tone?: "professional" | "casual" | "enthusiastic" | "informative";
+  platform?: Array<"LinkedIn" | "Instagram" | "X-Twitter" | "YouTube_Shorts" | "Facebook" | "Tiktok">;
+  tone?: "Professional" | "Casual" | "Enthusiastic" | "Informative";
   audience?: string;
   step_1?: ContentGenerationResponse;
   step_2?: ImageUploadStep;
@@ -59,7 +59,7 @@ function MultiStepWizard() {
       Array.from({ length: 5 }, (_, i) => {
         const stepIndex = i + 1;
         // Make steps 2, 3, and 4 valid by default
-        return { [stepIndex]: stepIndex >= 2 && stepIndex <= 4 };  // Step 2, 3, 4 (Preview) is always valid
+        return { [stepIndex]: stepIndex >= 1 && stepIndex <= 4 };  // Step 2, 3, 4 (Preview) is always valid
       }).reduce((acc, curr) => ({ ...acc, ...curr }), {})
   );
 
@@ -96,8 +96,8 @@ function MultiStepWizard() {
 
   const handleSetCampaignIdeaData = (
     topic: string, 
-    platform: Array<"linkedin" | "instagram" | "twitter" | "youtube" | "facebook" | "tiktok">,
-    tone: "professional" | "casual" | "enthusiastic" | "informative",
+    platform: Array<"LinkedIn" | "Instagram" | "X-Twitter" | "YouTube_Shorts" | "Facebook" | "Tiktok">,
+    tone: "Professional" | "Casual" | "Enthusiastic" | "Informative",
     audience: string,
     data: ContentGenerationResponse
 
