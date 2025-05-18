@@ -331,6 +331,11 @@ export async function pollVideoStatus(
     switchAfterMs = 60000,  // 1 minute
   } = {}
 ): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   const STATUS_WEBHOOK = process.env.NEXT_PUBLIC_N8N_VIDEO_STATUS_WEBHOOK_URL!;
   let attempt = 0;
   const startTime = Date.now();
@@ -340,7 +345,7 @@ export async function pollVideoStatus(
       const res = await fetch(STATUS_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: jobId, media_id: mediaId }),
+        body: JSON.stringify({ job_id: jobId, media_id: mediaId, user_id: session?.user.id }),
       });
 
       if (!res.ok) {
