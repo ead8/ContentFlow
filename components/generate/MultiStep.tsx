@@ -30,7 +30,6 @@ export interface Step4Data {
 
 export interface ScheduleStep {
   schedule_at?: string;
-  auto_schedule: boolean;
   status?: 'scheduled' | 'draft';
 }
 
@@ -154,7 +153,7 @@ function MultiStepWizard() {
 
   const stepsData = [
     { step: 1, icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Campaign Idea', component: <CampaignIdea data={formData} setStepData={handleSetCampaignIdeaData} setNextStepValid={(valid: boolean) => setStepValid(1, valid)} setBackStepValid={(valid: boolean) => setBackValid(1, valid)}/> },
-    { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Upload', component: <ImageUpload data={formData} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)} setBackStepValid={(valid: boolean) => setBackValid(2, valid)}/> },
+    { step: 2, icon: <ImagePlus className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Image Generation', component: <ImageUpload data={formData} setStepData={handleSetImageUploadData} setNextStepValid={(valid: boolean) => setStepValid(2, valid)} setBackStepValid={(valid: boolean) => setBackValid(2, valid)}/> },
     { step: 3, icon: <Video className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Video Creation', component: <VideoGeneration data={formData} setStepData={handleSetVideoGenerationData} setNextStepValid={(valid: boolean) => setStepValid(3, valid)} setBackStepValid={(valid: boolean) => setBackValid(3, valid)}/> },
     { step: 4, icon: <Eye className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Post Preview', component: <PreviewPostData data={formData} onUpdate={handleContentChange}/> },
     { step: 5, icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />, title: 'Schedule & Confirm', component: <ScheduleConfirm data={formData} setStepData={handleSetScheduleData} setBackStepValid={(valid: boolean) => setBackValid(5, valid)}/> },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast'
 import CreditLockoutModal from '../credit/credit-lookout-modal'
 import { CreditUsage } from '@/models/user'
 import { fetchCreditUsage } from '@/lib/api/supabase'
+import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
 
 const videoFormSchema = z.object({
   video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
@@ -48,6 +49,8 @@ export default function VideoGeneration({
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
   const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
+
+  const videoCreditRef = useRef<NotifyCreditWarningRef>(null)
   
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
@@ -57,79 +60,77 @@ export default function VideoGeneration({
   })
 
   const handleGenerate = async (formData: VideoFormData) => {
-  const noCredits = false; // replace with real credit logic
-  if (noCredits) {
-    setIsShowCreditLockout(true);
-    return;
-  }
-
-  try {
-    setIsGenerating(true);
-    setBackStepValid(false);
-
-    /* 1️⃣ request generation */
-    const result = await generateMedia({
-      prompt: formData.video_prompt,
-      media_type: "video"
-    });
-
-    toast({
-      title: "Video queued ⏳",
-      description: "We’re processing your video. This usually takes a minute.",
-    });
-
-    /* 2️⃣ poll until ready */
-    const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
-
-    setVideoUrl(finalUrl);
-    setStepData({
-      video_prompt: formData.video_prompt,
-      video_url: finalUrl
-    });
-
-    setNextStepValid(true);
-
-    toast({
-      title: "Success! ✨",
-      description: "Your video is ready.",
-    });
-
-    // Fetch updated credit usage after generation
-    loadCreditUsage()
-
-  } catch (err: any) {
-    console.error("Video Pulling Error",err);
-
-    toast({
-      variant: "destructive",
-      title: "Oops! The video didn’t make it",
-      description: "Video is taking longer than expected. Please try again in a few minutes.",
-    });
-
-  } finally {
-    setIsGenerating(false);
-    setBackStepValid(true);
-    setNextStepValid(true);
-  }
-};
-
-
- const loadCreditUsage = async () => {
-    try {
-      setIsLoadingCredits(true)
-      const usage = await fetchCreditUsage()
-      setCreditUsage(usage)
-    } catch (error) {
-      console.error("Failed to load credit usage:", error)
-    } finally {
-      setIsLoadingCredits(false)
+    if(creditUsage && creditUsage.total_video_credits - creditUsage.video_credits_used <= 0) {
+      setIsShowCreditLockout(true);
+      return;
+    } else {
+      try {
+        setIsGenerating(true);
+        setBackStepValid(false);
+    
+        /* 1️⃣ request generation */
+        const result = await generateMedia({
+          prompt: formData.video_prompt.replace(/\n/g, ' '),
+          media_type: "video"
+        });
+    
+        toast({
+          title: "Video queued ⏳",
+          description: "We’re processing your video. This usually takes a minute.",
+        });
+    
+        /* 2️⃣ poll until ready */
+        const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
+    
+        setVideoUrl(finalUrl);
+        setStepData({
+          video_prompt: formData.video_prompt,
+          video_url: finalUrl
+        });
+    
+        setNextStepValid(true);
+    
+        toast({
+          title: "Success! ✨",
+          description: "Your video is ready.",
+        });
+    
+        // Fetch updated credit usage after generation
+        loadCreditUsage()
+        videoCreditRef.current?.checkCredits()
+    
+      } catch (err: any) {
+        console.error("Video Pulling Error",err);
+    
+        toast({
+          variant: "destructive",
+          title: "Oops! The video didn’t make it",
+          description: "Video is taking longer than expected. Please try again in a few minutes.",
+        });
+    
+      } finally {
+        setIsGenerating(false);
+        setBackStepValid(true);
+        setNextStepValid(true);
+      }
     }
+  };
+
+  const loadCreditUsage = async () => {
+      try {
+        setIsLoadingCredits(true)
+        const usage = await fetchCreditUsage()
+        setCreditUsage(usage)
+      } catch (error) {
+        console.error("Failed to load credit usage:", error)
+      } finally {
+        setIsLoadingCredits(false)
+      }
   }
 
   useEffect(() => {
     loadCreditUsage()
   }, [])
-
 
   return (
     <Card>
@@ -228,6 +229,10 @@ export default function VideoGeneration({
         usedCredits={260}
         totalCredits={260}
         onUpgradeClick={() => {}}
+      />
+      <NotifyCreditWarning
+        type='video'
+        ref={videoCreditRef}
       />
     </Card>
   )
