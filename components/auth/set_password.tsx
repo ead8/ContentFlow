@@ -9,6 +9,8 @@ import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "../ui";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../auth-provider";
 
 // Zod schema
 const formSchema = z
@@ -36,8 +38,11 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function SetPasswordForm() {
   const router = useRouter();
+  const { toast } = useToast();
+  const { updatePassword } = useAuth();
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -48,17 +53,37 @@ export default function SetPasswordForm() {
   });
 
   // Submission
-  const onSubmit = (data: FormValues) => {
-  };
+  const handleSignIn = async (data: FormValues) => {
+    setIsLoading(true)
+    
+    try {
+     await updatePassword(data.password)
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully updated.",
+      })
+
+      router.push("/dashboard")
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "An error occurred while updating your password.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()}/>
+      {/* <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()}/> */}
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold">Set Password</h1>
       </div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full flex flex-col gap-4">
+        <form onSubmit={form.handleSubmit(handleSignIn)} className="w-full flex flex-col gap-4">
           <div className="w-full flex flex-col gap-4">
             <FormField
             control={form.control}
@@ -93,8 +118,8 @@ export default function SetPasswordForm() {
             )}
             />
           </div>
-          <Button type="submit" className="w-full max-w-sm my-4" disabled={!form.formState.isValid}>
-            Submit
+          <Button type="submit" className="w-full max-w-sm my-4" disabled={isLoading || !form.formState.isValid}>
+            {isLoading ? "Submitting" : "Set Password"}
           </Button>
         </form>
       </Form>
