@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UploadCloud, Sparkles, Maximize2, Loader2, RefreshCcw } from 'lucide-react'
+import { Sparkles, Maximize2, Loader2, RefreshCcw } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -19,6 +19,7 @@ import FullscreenImageViewer from './fullScreenViewer'
 import CreditLockoutModal from '../credit/credit-lookout-modal'
 import { CreditUsage } from '@/models/user'
 import { fetchCreditUsage } from '@/lib/api/supabase'
+import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
 
 const imageUploadSchema = z.object({
   generationPrompt: z
@@ -42,6 +43,8 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
 
+  const imageCreditRef = useRef<NotifyCreditWarningRef>(null);
+
   // Initialize react-hook-form
   const form = useForm({
     resolver: zodResolver(imageUploadSchema),
@@ -50,28 +53,16 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
     },
   })
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const url = URL.createObjectURL(file)
-      setUploadPreview(url)
-      setStepData({ image_upload: url, image_source: 'uploaded', file })
-      setNextStepValid(true)
-    }
-  }
-
   const onSubmit = async (formData: { generationPrompt: string }) => {
-    const noCredits = false; // replace with real credit logic
-    if(noCredits) {
+    if(creditUsage && creditUsage.total_image_credits - creditUsage.image_credits_used <= 0) {
       setIsShowCreditLockout(true)
-      
     } else {
       try {
         setIsGenerating(true)
         setBackStepValid(false)
   
         const generatedImageUrl = await generateImage({
-          prompt: formData.generationPrompt
+          prompt: formData.generationPrompt.replace(/\n/g, ' ')
         })
   
         setUploadPreview(generatedImageUrl)
@@ -87,7 +78,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         })
 
         loadCreditUsage()
-
+        imageCreditRef.current?.checkCredits()
       } catch (error: any) {
         console.error('Error generating image:', error)
         toast({
@@ -141,35 +132,12 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         </div>
       </div>
       <CardContent className="pt-6 space-y-8">
-        {/* Upload Section */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-primary" />
-            Upload Image
-          </h2>
-
-          <label
-            htmlFor="image-upload"
-            className="flex flex-col items-center justify-center w-full max-w-lg p-6 border-2 border-dashed border-muted rounded-xl cursor-pointer transition hover:bg-muted/40"
-          >
-            <UploadCloud className="w-10 h-10 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">Click to upload or drag & drop</p>
-            <p className="text-xs text-muted-foreground/60">PNG, JPG, JPEG — up to 5MB</p>
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-          </label>
-        </div>
 
         {/* Generator Section */}
         <div className="flex flex-col">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-pink-500" />
-            Or Generate via AI
+            Image Generation
           </h2>
 
           <Form {...form}>
@@ -183,7 +151,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Describe the image you want to generate with a touch of magic ✨"
+                        placeholder="Describe the image you want to generate"
                         className="min-h-[100px] resize-none"
                       />
                     </FormControl>
@@ -203,42 +171,32 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         {uploadPreview && (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-muted-foreground">Image Previews</h3>
+              <div
+                className="relative rounded-xl overflow-hidden shadow-md border border-muted w-full aspect-[4/3]"
+              >
+                {/* Image that fills the card */}
+                <Image
+                  src={uploadPreview}
+                  alt={`Image preview`}
+                  fill
+                  className="object-cover cursor-pointer"
+                />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl">
-              {data?.platform?.map((platform) => (
-                <div
-                  key={platform}
-                  className="relative rounded-xl overflow-hidden shadow-md border border-muted w-full aspect-[4/3]"
+                <button
+                  className="absolute top-2 right-2 bg-white p-1 rounded-full text-black group-hover:opacity-100 transition"
+                  onClick={() => setFullscreenSrc(uploadPreview)}
+                  title="View fullscreen"
                 >
-                  {/* Image that fills the card */}
-                  <Image
-                    src={uploadPreview}
-                    alt={`${platform} preview`}
-                    fill
-                    className="object-cover cursor-pointer"
-                    // onClick={() => handleImageClick(uploadPreview)}
-                  />
-
-                  {/* Platform label overlay */}
-                  <div className="absolute bottom-0 w-full bg-black/40 text-white text-sm font-medium text-center py-1">
-                    {platform}
-                  </div>
-                  <button
-                    className="absolute top-2 right-2 bg-black bg-opacity-20 p-1 rounded-full text-black group-hover:opacity-100 transition"
-                    onClick={() => setFullscreenSrc(uploadPreview)}
-                    title="View fullscreen"
-                  >
-                    <Maximize2 size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
+                  <Maximize2 size={18} />
+                </button>
+              </div>
           </div>
         )}
-      </CardContent>
-      {fullscreenSrc && (
-        <FullscreenImageViewer src={fullscreenSrc} onClose={() => setFullscreenSrc(null)} />
-      )}
+
+        </CardContent>
+        {fullscreenSrc && (
+          <FullscreenImageViewer src={fullscreenSrc} onClose={() => setFullscreenSrc(null)} />
+        )}
 
       <CreditLockoutModal
         isOpen={isShowCreditLockout}
@@ -247,6 +205,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         totalCredits={260}
         onUpgradeClick={() => {}}
       />
+      <NotifyCreditWarning ref={imageCreditRef} type="image" />
     </Card>
   )
 }
