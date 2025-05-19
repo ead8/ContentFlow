@@ -17,6 +17,7 @@ type AuthContextType = {
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string) => Promise<{ error: any }>
+  reset: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   sendMagicLink: (email: string) => Promise<{ error: any }>
 }
@@ -109,6 +110,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
+  const reset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email,
+      {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    )
+    throw error
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -128,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     signIn,
     signUp,
+    reset,
     signOut,
     sendMagicLink,
   }
