@@ -23,4 +23,6 @@ export type CreditUsage = {
     total_video_credits: number,
     locked_out: boolean,
     trial_expiry: string,
+    updated_at: string,
+    created_at: string,
 }

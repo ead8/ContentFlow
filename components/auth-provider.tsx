@@ -16,7 +16,8 @@ type AuthContextType = {
   user: User | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string) => Promise<{ error: any }>
+  updatePassword: (password: string) => Promise<{ error: any }>
+  signUp: (email: string, fullName: string, userType: string) => Promise<{ error: any }>
   reset: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   sendMagicLink: (email: string) => Promise<{ error: any }>
@@ -99,25 +100,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
     })
     return { error }
   }
+
+  // const signUp = async (email: string, password: string) => {
+  //   const { error } = await supabase.auth.signUp({
+  //     email,
+  //     password,
+  //     options: {
+  //       emailRedirectTo: `${window.location.origin}/callback`,
+  //     },
+  //   })
+  //   return { error }
+  // }
+
+
+  const signUp = async (
+  email: string,
+  fullName: string,
+  userType: string
+): Promise<{ error: any }> => {
+  // 1. Sign up user with email only, no password yet
+  const { data, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password: "", // No password yet
+    options: {
+      emailRedirectTo: `${window.location.origin}/callback`,
+    },
+  });
+
+  if (signUpError) return { error: signUpError };
+
+  // 2. Save extra info to profiles table (indexed by email for now)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({
+      email,       // used as key for now
+      full_name: fullName,
+      type: userType,
+    });
+
+  return { error: profileError || null };
+};
 
   const reset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(
       email,
       {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/callback`,
       },
     )
-    throw error
+    return { error }
   }
 
   const signOut = async () => {
@@ -138,6 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isLoading,
     signIn,
+    updatePassword,
     signUp,
     reset,
     signOut,
