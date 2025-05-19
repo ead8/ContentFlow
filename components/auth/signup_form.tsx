@@ -17,6 +17,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { MailCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "../auth-provider"
+import { useState } from "react"
 
 const formSchema = z.object({
   userType: z.enum(["creator", "agency", "business"]),
@@ -30,7 +32,10 @@ const formSchema = z.object({
 type SignUpFormValues = z.infer<typeof formSchema>
 
 const SignUpForm = () => {
+  const {signUp} = useAuth()
   const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -40,8 +45,15 @@ const SignUpForm = () => {
     },
   })
 
-  const onSubmit = (data: SignUpFormValues) => {
-    router.push("/otp")
+  const onSubmit = async(data: SignUpFormValues) => {
+    try {
+      setIsLoading(true)
+      // await signUp(data.email, data.fullName, data.userType)
+
+    } catch (error) {
+      
+    }
+
   }
 
   return (

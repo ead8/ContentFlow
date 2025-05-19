@@ -2,7 +2,6 @@
 
 import SetPasswordForm from "@/components/auth/set_password"
 
-
 const SetPasswordPage = () => {
 
   return (
