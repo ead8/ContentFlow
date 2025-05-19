@@ -73,6 +73,7 @@ export default function VideoGeneration({
           prompt: formData.video_prompt.replace(/\n/g, ' '),
           media_type: "video"
         });
+        
     
         toast({
           title: "Video queued ⏳",
