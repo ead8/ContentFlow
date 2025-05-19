@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Label } from '../ui/label';
 import { Calendar } from '../ui/calendar';
-import { Switch } from '../ui/switch'; // Use ShadCN's Switch for better UI
 import { ScheduleStep, WizardFormData } from './MultiStep';
 import { createPost } from '@/lib/n8n/client';
 import { useRouter } from 'next/navigation';
@@ -20,7 +19,6 @@ interface Step5ScheduleConfirmProps {
 const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleConfirmProps) => {
   const route = useRouter()
   const { toast } = useToast();
-  const [autoSchedule, setAutoSchedule] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [isPublishing, setIsPublishing] = useState(false)
 
@@ -32,15 +30,13 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
         const postId = await createPost({
           ...data,
           step_5: {
-            schedule_at: autoSchedule ? "" : startDate?.toISOString(),
-            auto_schedule: autoSchedule,
+            schedule_at: startDate?.toISOString(),
             status: 'draft',
           },
         })
 
         setStepData({
-          schedule_at: autoSchedule ? "" : startDate?.toISOString(),
-          auto_schedule: autoSchedule,
+          schedule_at: startDate?.toISOString(),
           status: 'draft',
         })
 
@@ -48,14 +44,13 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
   
         toast({
           title: 'Success! ✨',
-          description: 'Your post published was successfully.',
+          description: 'Your post published successfully.',
         })
         
         route.push(`/posts/${postId}`)
       } catch (error: any) {
         setStepData({
-          schedule_at: autoSchedule ? "" : startDate?.toISOString(),
-          auto_schedule: autoSchedule,
+          schedule_at: startDate?.toISOString(),
           status: 'draft',
         })
 
@@ -74,32 +69,15 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
   return (
     <Card>
       <CardContent className="flex flex-col space-y-6 pt-6">
-
-        {/* Auto Schedule Toggle */}
-        <div className="flex items-center justify-between">
-          <Label htmlFor="auto-schedule">Auto Schedule</Label>
-          <Switch
-            id="auto-schedule"
-            checked={autoSchedule}
-            onCheckedChange={setAutoSchedule}
+        <div>
+          <Label className="block mb-2">Pick Schedule Date</Label>
+          <Calendar
+            mode="single"
+            selected={startDate}
+            onSelect={setStartDate}
+            className="rounded-md border"
           />
         </div>
-        <p className="text-sm text-muted-foreground">
-          Let the system decide the best time to post for you.
-        </p>
-
-        {/* Calendar - shown only when autoSchedule is off */}
-        {!autoSchedule && (
-          <div>
-            <Label className="block mb-2">Pick Schedule Date</Label>
-            <Calendar
-              mode="single"
-              selected={startDate}
-              onSelect={setStartDate}
-              className="rounded-md border"
-            />
-          </div>
-        )}
         <Button onClick={handlePublish} disabled={isPublishing} className="self-end">
           {isPublishing ? 'Publishing...' : 'Publish Post'}
         </Button>
