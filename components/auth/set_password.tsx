@@ -118,7 +118,7 @@ export default function SetPasswordForm() {
             )}
             />
           </div>
-          <Button type="submit" className="w-full max-w-sm my-4" disabled={isLoading || !form.formState.isValid}>
+          <Button type="submit" className="w-full max-w-sm my-4" disabled={isLoading}>
             {isLoading ? "Submitting" : "Set Password"}
           </Button>
         </form>
