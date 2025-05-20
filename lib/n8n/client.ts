@@ -1,6 +1,6 @@
 import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
-import { ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
+import { AddFeedbackRequest, ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
 
 const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
 const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
@@ -319,6 +319,66 @@ export async function createPost(data: WizardFormData): Promise<string> {
   }
 
   return responseBody.data.id; // Return the image URL
+}
+
+export async function addFeedback(data: AddFeedbackRequest): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // Check if the session exists (user is authenticated)
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_ADD_FEEDBACK_WEBHOOK_URL;
+  if (!n8nWebhookUrl) {
+    throw new Error("N8N webhook URL is not defined in environment variables.");
+  }
+
+  const {
+    rating,
+    feedback,
+    source
+  } = data;
+
+
+
+  const response = await fetch(n8nWebhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      user_id: session.user.id,
+      rating: rating,
+      feedback_text: feedback,
+      source: source,
+      date: new Date()
+    })
+  })
+
+  if (!response.ok) {
+    let errorMessage = "Unknown error";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+      console.error("N8N Webhook Error:", errorData);
+    } catch (err) {
+      console.error("Failed to parse error response:", err);
+    }
+    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+  }
+
+  // Parse response and return the image URL
+  const responseBody = await response.json();
+ 
+  if (!responseBody.id) {
+    throw new Error("No Id returned from N8N.");
+  }
+
+  return responseBody.id; // Return the image URL
 }
 
 export async function pollVideoStatus(

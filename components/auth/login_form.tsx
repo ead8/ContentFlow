@@ -151,7 +151,7 @@ const LoginForm = () =>{
                 </Link>
             </div>
 
-            <Button type="submit" className="w-full" disabled={!form.formState.isValid || isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -164,7 +164,7 @@ const LoginForm = () =>{
           
             <div className="text-center text-sm text-gray-600">
                 Don&apos;t have an account?{" "}
-                <Link href="/register" className="text-primary hover:underline">
+                <Link href="/signup" className="text-primary hover:underline">
                     Sign Up
                 </Link>
             </div>
