@@ -19,9 +19,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "../auth-provider"
 import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
-  userType: z.enum(["creator", "agency", "business"]),
+  userType: z.enum(["Creator", "Agency", "Business Owner"]),
   fullName: z.string().min(2, "Please enter your name"),
   email: z
     .string()
@@ -34,12 +35,13 @@ type SignUpFormValues = z.infer<typeof formSchema>
 const SignUpForm = () => {
   const {signUp} = useAuth()
   const router = useRouter()
+  const {toast} = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userType: "creator",
+      userType: "Creator",
       fullName: "",
       email: "",
     },
@@ -48,10 +50,22 @@ const SignUpForm = () => {
   const onSubmit = async(data: SignUpFormValues) => {
     try {
       setIsLoading(true)
-      // await signUp(data.email, data.fullName, data.userType)
 
+      const { error } = await signUp(data.email)
+
+      if(error) {
+        throw error
+      }
+      router.push(`/otp?email=${data.email}&fullName=${data.fullName}&type=${data.userType}`)
     } catch (error) {
-      
+      setIsLoading(false)
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
 
   }
@@ -79,9 +93,9 @@ const SignUpForm = () => {
                     className="grid grid-cols-3 gap-2"
                   >
                     {[
-                      { value: "creator", label: "Creator" },
-                      { value: "agency", label: "Agency" },
-                      { value: "business", label: "Business Owner" },
+                      { value: "Creator", label: "Creator" },
+                      { value: "Agency", label: "Agency" },
+                      { value: "Business Owner", label: "Business Owner" },
                     ].map((option) => (
                       <label
                         key={option.value}
@@ -151,8 +165,8 @@ const SignUpForm = () => {
           />
 
           {/* Submit */}
-          <Button type="submit" className="w-full">
-            Get OTP
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            { isLoading ? "Sending OTP" : "Get OTP" }
           </Button>
 
           {/* Signup Link */}

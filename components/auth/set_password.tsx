@@ -61,7 +61,7 @@ export default function SetPasswordForm() {
 
       toast({
         title: "Password updated",
-        description: "Your password has been successfully updated.",
+        description: "Your password has been successfully setted.",
       })
 
       router.push("/dashboard")
