@@ -114,9 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Send the OTP (magic link) to the user’s email
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        shouldCreateUser: false
-      }
     })
     
     if (otpError) return { error: otpError }
