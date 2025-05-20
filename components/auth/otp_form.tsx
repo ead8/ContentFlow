@@ -8,19 +8,30 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../ui/input-otp";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "../auth-provider";
+import { useToast } from "@/hooks/use-toast";
 
 // Zod schema
 const formSchema = z.object({
-  otp: z.string().min(4, {
-    message: "Your otp password must be 4 characters.",
+  otp: z.string().min(6, {
+    message: "Your otp password must be 6 characters.",
   }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export default function OTPVerificationForm() {
+  const searchParams = useSearchParams()
+  const email = searchParams.get('email')
+  const fullName = searchParams.get('fullName')
+  const userType = searchParams.get('type')
+
+  const {verifyOTP} = useAuth()
+  const [isLoading, setIsLoading] = useState(false);
+
   const router = useRouter();
+  const { toast } = useToast()
   const [timer, setTimer] = useState(15);
 
   const form = useForm<FormValues>({
@@ -40,8 +51,31 @@ export default function OTPVerificationForm() {
 
 
   // Submission
-  const onSubmit = (data: FormValues) => {
-    router.push('/setPassword')
+  const onSubmit = async (data: FormValues) => {
+    try {
+      setIsLoading(true)
+      const {error} = await verifyOTP(
+        email ?? "",
+        fullName ?? "",
+        userType ?? "",
+        data.otp
+      )
+      
+      if(error) {
+        throw error
+      }
+
+      router.push('/setPassword')
+    } catch (error) {
+      setIsLoading(false)
+      toast({
+        title: "Error",
+        description: "An error occurred while verifying your OTP.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   };
 
   return (
@@ -50,7 +84,7 @@ export default function OTPVerificationForm() {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold">OTP Verification Required</h1>
         <p className="text-sm">
-            Please enter OTP sent to <span className="text-blue-400">sam_chris@gmail.com</span>
+            Please enter OTP sent to <span className="text-blue-400">{email}</span>
         </p>
       </div>
       <Form {...form}>
@@ -63,12 +97,14 @@ export default function OTPVerificationForm() {
                 <FormItem>
                 <FormLabel>Input your OTP code</FormLabel>
                 <FormControl>
-                    <InputOTP {...field} maxLength={4} className="w-full">
+                    <InputOTP {...field} maxLength={6} className="w-full">
                         <InputOTPGroup className="w-full">
                             <InputOTPSlot index={0} className="w-full"/>
                             <InputOTPSlot index={1} className="w-full"/>
                             <InputOTPSlot index={2} className="w-full"/>
                             <InputOTPSlot index={3} className="w-full"/>
+                            <InputOTPSlot index={4} className="w-full"/>
+                            <InputOTPSlot index={5} className="w-full"/>
                         </InputOTPGroup>
                     </InputOTP>
                 </FormControl>
@@ -80,8 +116,8 @@ export default function OTPVerificationForm() {
           <p className="text-sm self-end">
             Resend Code in <span className="text-blue-400 font-medium">{timer}s</span>
           </p>
-          <Button type="submit" className="w-full max-w-sm mb-4">
-            Submit
+          <Button type="submit" className="w-full max-w-sm mb-4" disabled={isLoading}>
+            {isLoading? "Verifying" : "Verify"}
           </Button>
         </form>
       </Form>

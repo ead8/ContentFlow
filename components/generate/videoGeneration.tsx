@@ -23,6 +23,7 @@ import CreditLockoutModal from '../credit/credit-lookout-modal'
 import { CreditUsage } from '@/models/user'
 import { fetchCreditUsage } from '@/lib/api/supabase'
 import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
+import FeedbackModal from '../feedback/feedback-modal'
 
 const videoFormSchema = z.object({
   video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
@@ -49,6 +50,7 @@ export default function VideoGeneration({
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
   const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
+  const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
 
   const videoCreditRef = useRef<NotifyCreditWarningRef>(null)
   
@@ -102,12 +104,7 @@ export default function VideoGeneration({
     
       } catch (err: any) {
         console.error("Video Pulling Error",err);
-    
-        toast({
-          variant: "destructive",
-          title: "Oops! The video didn’t make it",
-          description: "Video is taking longer than expected. Please try again in a few minutes.",
-        });
+        setOpenFeedbackModal(true);
     
       } finally {
         setIsGenerating(false);
@@ -235,6 +232,15 @@ export default function VideoGeneration({
         type='video'
         ref={videoCreditRef}
       />
+      {
+        openFeedbackModal && (
+          <FeedbackModal
+          open={openFeedbackModal}
+          onClose={() => setOpenFeedbackModal(false)}
+          source='error_feedback'
+          />
+        )
+      }
     </Card>
   )
 }

@@ -20,6 +20,7 @@ import CreditLockoutModal from '../credit/credit-lookout-modal'
 import { CreditUsage } from '@/models/user'
 import { fetchCreditUsage } from '@/lib/api/supabase'
 import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
+import FeedbackModal from '../feedback/feedback-modal'
 
 const imageUploadSchema = z.object({
   generationPrompt: z
@@ -42,6 +43,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
   const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
+  const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
 
   const imageCreditRef = useRef<NotifyCreditWarningRef>(null);
 
@@ -81,11 +83,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         imageCreditRef.current?.checkCredits()
       } catch (error: any) {
         console.error('Error generating image:', error)
-        toast({
-          variant: 'destructive',
-          title: 'Generation failed 😢',
-          description: error.message || 'There was an error generating your image.',
-        })
+        setOpenFeedbackModal(true)
       } finally {
         setIsGenerating(false)
         setBackStepValid(true)
@@ -206,6 +204,15 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
         onUpgradeClick={() => {}}
       />
       <NotifyCreditWarning ref={imageCreditRef} type="image" />
+      {
+        openFeedbackModal && (
+          <FeedbackModal
+          open={openFeedbackModal}
+          onClose={() => setOpenFeedbackModal(false)}
+          source='error_feedback'
+          />
+        )
+      }
     </Card>
   )
 }

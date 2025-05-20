@@ -37,3 +37,10 @@ export interface MediaGenerationResult {
   mediaId: string;
   jobId: string;
 }
+
+
+export type AddFeedbackRequest = {
+  feedback: string;
+  rating: number;
+  source: string;
+}
