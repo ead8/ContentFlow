@@ -17,7 +17,8 @@ type AuthContextType = {
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   updatePassword: (password: string) => Promise<{ error: any }>
-  signUp: (email: string, fullName: string, userType: string) => Promise<{ error: any }>
+  signUp: (email: string) => Promise<{ error: any }>
+  verifyOTP: (email: string, fullName: string, userType: string, token: string) => Promise<{ error: any }>
   reset: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   sendMagicLink: (email: string) => Promise<{ error: any }>
@@ -107,45 +108,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
-  // const signUp = async (email: string, password: string) => {
-  //   const { error } = await supabase.auth.signUp({
-  //     email,
-  //     password,
-  //     options: {
-  //       emailRedirectTo: `${window.location.origin}/callback`,
-  //     },
-  //   })
-  //   return { error }
-  // }
-
-
   const signUp = async (
   email: string,
+  ): Promise<{ error: any }> => {
+    // Send the OTP (magic link) to the user’s email
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false
+      }
+    })
+    
+    if (otpError) return { error: otpError }
+
+    return { error: null }
+  };
+
+  const verifyOTP = async (
+  email: string,
   fullName: string,
-  userType: string
-): Promise<{ error: any }> => {
-  // 1. Sign up user with email only, no password yet
-  const { data, error: signUpError } = await supabase.auth.signUp({
+  userType: string,
+  token: string
+  ): Promise<{ error: any }> => {
+    // Verify the OTP
+  const {
+    data: { session },
+    error: otpError,
+  } = await supabase.auth.verifyOtp({
     email,
-    password: "", // No password yet
-    options: {
-      emailRedirectTo: `${window.location.origin}/callback`,
-    },
-  });
+    token,
+    type: 'email',
+  })
 
-  if (signUpError) return { error: signUpError };
+  if (otpError) return { error: otpError }
 
-  // 2. Save extra info to profiles table (indexed by email for now)
+  // Step 2: Get the user ID from the session
+  const userId = session?.user?.id
+  if (!userId) return { error: 'No user found in session' }
+
+  // Step 3: Insert or update the user profile
   const { error: profileError } = await supabase
     .from('profiles')
     .upsert({
-      email,       // used as key for now
+      id: userId,
       full_name: fullName,
-      type: userType,
-    });
+      user_type: userType,
+      is_onboarded: false,
+    })
 
-  return { error: profileError || null };
-};
+  return { error: profileError || null }
+  };
 
   const reset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(
@@ -177,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     updatePassword,
     signUp,
+    verifyOTP,
     reset,
     signOut,
     sendMagicLink,

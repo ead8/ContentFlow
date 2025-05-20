@@ -19,6 +19,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "../auth-provider"
 import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
   userType: z.enum(["creator", "agency", "business"]),
@@ -34,6 +35,7 @@ type SignUpFormValues = z.infer<typeof formSchema>
 const SignUpForm = () => {
   const {signUp} = useAuth()
   const router = useRouter()
+  const {toast} = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignUpFormValues>({
@@ -48,10 +50,22 @@ const SignUpForm = () => {
   const onSubmit = async(data: SignUpFormValues) => {
     try {
       setIsLoading(true)
-      // await signUp(data.email, data.fullName, data.userType)
 
+      const { error } = await signUp(data.email)
+
+      if(error) {
+        throw error
+      }
+      router.push(`/otp?email=${data.email}&fullName=${data.fullName}&type=${data.userType}`)
     } catch (error) {
-      
+      setIsLoading(false)
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
 
   }
@@ -151,8 +165,8 @@ const SignUpForm = () => {
           />
 
           {/* Submit */}
-          <Button type="submit" className="w-full">
-            Get OTP
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            { isLoading ? "Sending OTP" : "Get OTP" }
           </Button>
 
           {/* Signup Link */}
