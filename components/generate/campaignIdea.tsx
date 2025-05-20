@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form"
 import { Button, Card, CardContent, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, Input, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "../ui"
 import { Select } from "@radix-ui/react-select"
-import { Loader2 } from "lucide-react"
+import { Loader2, ThumbsDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,6 +13,7 @@ import { MultiSelect } from "../multiselect";
 import { ContentGenerationResponse } from "@/models/content";
 import ContentPreviewComponent from "./generatedContentPreview";
 import { WizardFormData } from "./MultiStep";
+import FeedbackModal from "../feedback/feedback-modal";
 
 const contentFormSchema = z.object({
   platform: z.array(z.enum(['LinkedIn', 'Instagram', 'X-Twitter', 'YouTube_Shorts', 'Facebook', 'Tiktok'])).min(1),
@@ -40,6 +41,7 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
      const { toast } = useToast()
      const [isGeneratingText, setIsGeneratingText] = useState(false)
      const [generatedContent, setGeneratedContent] = useState<ContentGenerationResponse | null>(data?.step_1 || null)
+     const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
 
       const contentForm = useForm<z.infer<typeof contentFormSchema>>({
         resolver: zodResolver(contentFormSchema),
@@ -201,7 +203,18 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
                   </form>
                   {generatedContent && (
                     <div className="mt-6">
-                        <h2 className="text-lg font-semibold mb-2">Generated Content Preview</h2>
+                        <div className="flex items-center justify-between mb-4 border-b pb-2">
+                          <h2 className="text-xl font-semibold text-foreground">
+                            Generated Content Preview
+                          </h2>
+                          <button
+                            aria-label="Dislike"
+                            className="p-1 rounded-full hover:bg-muted transition-colors"
+                            onClick={() => setOpenFeedbackModal(true)}
+                          >
+                            <ThumbsDown className="w-5 h-5 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        </div>
                         <Card>
                         <CardContent className="whitespace-pre-wrap p-4 text-sm text-gray-700">
                             <ContentPreviewComponent data={generatedContent}/>
@@ -211,6 +224,11 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
                 )}
               </Form>
               </CardContent>
+              <FeedbackModal
+              open={openFeedbackModal}
+              onClose={() => setOpenFeedbackModal(false)}
+              source="post_feedback"
+              />
           </Card>
       )
 }

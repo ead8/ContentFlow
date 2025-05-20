@@ -374,11 +374,11 @@ export async function addFeedback(data: AddFeedbackRequest): Promise<string> {
   // Parse response and return the image URL
   const responseBody = await response.json();
  
-  if (!responseBody.success || !responseBody.data) {
+  if (!responseBody.id) {
     throw new Error("No Id returned from N8N.");
   }
 
-  return responseBody.data.id; // Return the image URL
+  return responseBody.id; // Return the image URL
 }
 
 export async function pollVideoStatus(

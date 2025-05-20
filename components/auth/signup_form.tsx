@@ -22,7 +22,7 @@ import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
-  userType: z.enum(["creator", "agency", "business"]),
+  userType: z.enum(["Creator", "Agency", "Business Owner"]),
   fullName: z.string().min(2, "Please enter your name"),
   email: z
     .string()
@@ -41,7 +41,7 @@ const SignUpForm = () => {
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userType: "creator",
+      userType: "Creator",
       fullName: "",
       email: "",
     },
@@ -93,9 +93,9 @@ const SignUpForm = () => {
                     className="grid grid-cols-3 gap-2"
                   >
                     {[
-                      { value: "creator", label: "Creator" },
-                      { value: "agency", label: "Agency" },
-                      { value: "business", label: "Business Owner" },
+                      { value: "Creator", label: "Creator" },
+                      { value: "Agency", label: "Agency" },
+                      { value: "Business Owner", label: "Business Owner" },
                     ].map((option) => (
                       <label
                         key={option.value}
