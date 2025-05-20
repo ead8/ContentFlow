@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"; // Adjust based on your project
 
 export default function OnboardingModal({onStart }: { onStart: () => void }) {
   return (
-    <div className="max-w-md w-full mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
+    <div className="max-w-md w-full mx-auto bg-white rounded-2xl p-8 text-center">
       <h2 className="text-2xl font-semibold text-gray-900">
         You are all set, <span className="inline-block ml-1">👍</span>
       </h2>
