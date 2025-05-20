@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Choose where to send the user next
-  let redirectPath = '/setPassword'
+  let redirectPath = '/updatePassword'
 
   return NextResponse.redirect(new URL(redirectPath, req.url))
 }
