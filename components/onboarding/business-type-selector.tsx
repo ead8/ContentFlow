@@ -1,36 +1,43 @@
-import { useState } from 'react';
-import { Check } from 'lucide-react';
-import OnboardingTitle from './onboarding-title';
+"use client";
+
+import { Check } from "lucide-react";
+import OnboardingTitle from "./onboarding-title";
+
+interface BusinessTypeSelectorProps {
+  value: string;
+  setValue: (val: string) => void;
+}
 
 const businessTypes = [
-  { label: 'Coaches', icon: '/images/icons/coaches.svg' },
-  { label: 'Agencies', icon: '/images/icons/agencies.svg' },
-  { label: 'Local Business', icon: '/images/icons/local.svg' },
-  { label: 'Personal Brand', icon: '/images/icons/personal.svg' },
+  { label: "Coaches", icon: "/images/icons/coaches.svg" },
+  { label: "Agencies", icon: "/images/icons/agencies.svg" },
+  { label: "Local Business", icon: "/images/icons/local.svg" },
+  { label: "Personal Brand", icon: "/images/icons/personal.svg" },
 ];
 
-export default function BusinessTypeSelector() {
-  const [selected, setSelected] = useState('Agencies');
-
+export default function BusinessTypeSelector({
+  value,
+  setValue,
+}: BusinessTypeSelectorProps) {
   return (
     <div className="p-6 mx-auto space-y-6">
       {/* Question */}
-        <div className="w-full">
-            <OnboardingTitle
-            title="What business type you identify yourself ?"
-            />
-        </div>
+      <div className="w-full">
+        <OnboardingTitle title="What business type do you identify yourself with?" />
+      </div>
 
       {/* Options */}
       <div className="grid grid-cols-2 gap-4">
         {businessTypes.map(({ label, icon }) => {
-          const isSelected = selected === label;
+          const isSelected = value === label;
           return (
             <button
               key={label}
-              onClick={() => setSelected(label)}
+              onClick={() => setValue(label)}
               className={`relative flex flex-col items-center justify-center border rounded-xl p-4 text-center transition duration-200 ${
-                isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-400'
+                isSelected
+                  ? "border-blue-500 shadow-lg"
+                  : "border-gray-200 hover:border-gray-400"
               }`}
             >
               <img src={icon} alt={label} className="w-10 h-10 mb-2" />

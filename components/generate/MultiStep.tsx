@@ -22,6 +22,9 @@ export interface ImageUploadStep {
 export interface VideoGenerationStep {
   video_prompt?: string;
   video_url?: string;
+  job_id?: string,
+  media_id?: string,
+  isEmailNotify?: boolean
 }
 
 export interface Step4Data {
