@@ -1,16 +1,15 @@
-import { ArrowBigRight, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import BusinessTypeSelector from "../onboarding/business-type-selector";
 import PainPointSelector from "../onboarding/pain-point-selector";
 import Link from "next/link";
 import { Button } from "../ui";
 import NicheAudienceForm from "../onboarding/niche-audience-selector";
 import PlatformSelector from "../onboarding/platform-selection";
-// import PainPointStep from "./PainPointStep";
-// Import other step components similarly
-// import BusinessStep from "./BusinessStep";
-// import NicheStep from "./NicheStep";
-// import PlatformStep from "./PlatformStep";
+import { handleOnboarding } from "@/lib/api/supabase";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 const steps = [
   "Pain Point",
@@ -19,30 +18,143 @@ const steps = [
   "Platform Selection",
 ];
 
-export default function MultiStepProgress() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({});
+interface OnboardingFormType {
+  painPoint: string[]
+  businessType: string
+  niche: {
+    title: string,
+    description: string
+  },
+  platform: string[]
+}
 
-  const handleNext = (data: any) => {
-    setFormData((prev) => ({ ...prev, ...data }));
+const defaultForm: OnboardingFormType = {
+  painPoint: [],
+  businessType: "",
+  niche: { title: '', description: '' },
+  platform: [],
+}
+
+export default function MultiStepProgress() {
+  const { toast } = useToast()
+  const router = useRouter()
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<OnboardingFormType>(defaultForm)
+  const [isLoading, setLoading] = useState(false)
+
+
+  const [isNextStepValidMap, setIsNextStepValidMap] = useState<Record<number, boolean>>({
+    0: false,
+    1: false,
+    2: false,
+    3: false,
+  });
+
+  const setStepValid = (stepIndex: number, isValid: boolean) => {
+    setIsNextStepValidMap((prev) => ({ ...prev, [stepIndex]: isValid }));
+  };
+
+  const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      console.log("Final Data:", formData);
-      // submit to backend or navigate
+      handleSubmit()
     }
   };
+
+  const handleSubmit = async () => {
+      try {
+          setLoading(true)
+          // Initialize Supabase client
+          const supabase = createClient()
+          
+          // Get session data
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) {
+              throw new Error('User is not authenticated')
+          }
+
+          const response = await handleOnboarding({
+              platforms: formData.platform,
+              business_type: formData.businessType,
+              pain_points: formData.platform,
+              niche_title: formData.niche.title,
+              niche_description: formData.niche.description,
+              user_id: session.user?.id, // Ensure user exists and is valid
+          })
+
+          if (response) {
+              toast({
+                  title: 'Success',
+                  description: 'Your onboarding data has been submitted successfully!',
+                  variant: 'default',
+              })
+              router.push('/dashboard')
+          } else {
+              toast({
+                  title: 'Error',
+                  description: 'There was an error submitting your onboarding data. Please try again.',
+                  variant: 'destructive',
+              })
+          }
+      } catch (error) {
+          toast({
+              title: 'Error',
+              description: 'There was an error submitting your onboarding data. Please try again.',
+              variant: 'destructive',
+          })
+      } finally {
+          setLoading(false)
+      }
+  }
 
   const renderStep = () => {
     switch (currentStep) {
       case 0:
-        return <PainPointSelector/>
-      case 1: 
-        return <BusinessTypeSelector/>
-      case 2: 
-        return <NicheAudienceForm/>
-      case 3: 
-        return <PlatformSelector/>
+        return (
+          <PainPointSelector
+            selected={formData.painPoint}
+            setSelected={(selected) => {
+              setFormData((prev) => ({ ...prev, painPoint: selected }));
+              setStepValid(0, selected.length > 0);
+            }}
+          />
+        );
+      case 1:
+        return (
+          <BusinessTypeSelector
+            value={formData.businessType}
+            setValue={(businessType) => {
+              setFormData((prev) => ({ ...prev, businessType }));
+              setStepValid(1, businessType.trim().length > 0);
+            }}
+          />
+        );
+      case 2:
+        return (
+          <NicheAudienceForm
+            value={formData.niche}
+            setValue={(niche) => {
+              setFormData((prev) => ({ ...prev, niche }));
+              const isValid =
+                niche.title.trim().length > 0 ||
+                niche.description.trim().length > 0;
+              setStepValid(2, isValid);
+            }}
+          />
+        );
+      case 3:
+        return (
+          <PlatformSelector
+            selected={formData.platform}
+            setSelected={(selected) => {
+              setFormData((prev) => ({ ...prev, platform: selected }));
+              setStepValid(3, selected.length > 0);
+            }}
+          />
+        );
+      default:
+        return null;
     }
   };
 
@@ -67,23 +179,30 @@ export default function MultiStepProgress() {
                     </div>
                 </Link>
             </div>
-            {renderStep()}
-            <div className="flex justify-between items-center gap-8 mt-8">
+            {renderStep()}{/* Navigation */}
+            <div className="flex justify-end items-center gap-8 mt-8">
+              {currentStep !== 0 && (
                 <Button
-                    variant="outline"
-                    className="w-full text-sm text-gray-500 hover:underline"
-                    onClick={() => setCurrentStep((prev) => Math.max(prev - 1, 0))}
+                  variant="outline"
+                  disabled={isLoading}
+                  className="w-72 text-sm text-gray-500 hover:underline"
+                  onClick={() =>
+                    setCurrentStep((prev) => Math.max(prev - 1, 0))
+                  }
                 >
-                    Back
+                  Back
                 </Button>
-                <Button
-                    variant="default"
-                    className="w-full text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                    onClick={() => handleNext({})}
-                >
-                    Next
-                </Button>
+              )}
+              <Button
+                variant="default"
+                className="w-72 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                onClick={handleNext}
+                disabled={isLoading || !isNextStepValidMap[currentStep]}
+              >
+                {currentStep === 3 ? (isLoading ? "Submitting" : "Submit") : "Next"}
+              </Button>
             </div>
+    
         </div>
     </div>
   );

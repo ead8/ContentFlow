@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
@@ -14,8 +14,9 @@ import {
   FormControl,
   FormMessage,
   Form,
+  FormDescription,
 } from '@/components/ui/form'
-import { Card, CardContent } from '../ui'
+import { Card, CardContent, RadioGroup, RadioGroupItem } from '../ui'
 import { VideoGenerationStep, WizardFormData } from './MultiStep'
 import { generateMedia, pollVideoStatus } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
@@ -27,6 +28,7 @@ import FeedbackModal from '../feedback/feedback-modal'
 
 const videoFormSchema = z.object({
   video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
+  delivery_type: z.enum(['instant', 'email']),
 })
 
 type VideoFormData = z.infer<typeof videoFormSchema>
@@ -51,6 +53,7 @@ export default function VideoGeneration({
   const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
   const [isLoadingCredits, setIsLoadingCredits] = useState(true)
   const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
+  const [isWaiting, setIsWaiting] = useState(false)
 
   const videoCreditRef = useRef<NotifyCreditWarningRef>(null)
   
@@ -58,8 +61,17 @@ export default function VideoGeneration({
     resolver: zodResolver(videoFormSchema),
     defaultValues: {
       video_prompt: data?.step_3?.video_prompt || '',
+      delivery_type: 'instant'
     },
   })
+
+  const handleOnSubmit = async (formData: VideoFormData) => {
+    if(formData.delivery_type === "email") {
+      handleGenerateWithEmail(formData)
+    } else {
+      handleGenerate(formData)
+    }
+  }
 
   const handleGenerate = async (formData: VideoFormData) => {
     if(creditUsage && creditUsage.total_video_credits - creditUsage.video_credits_used <= 0) {
@@ -67,15 +79,16 @@ export default function VideoGeneration({
       return;
     } else {
       try {
+        setIsWaiting(true)
         setIsGenerating(true);
         setBackStepValid(false);
     
         /* 1️⃣ request generation */
         const result = await generateMedia({
           prompt: formData.video_prompt.replace(/\n/g, ' '),
-          media_type: "video"
+          media_type: "video",
+          cron_job: false
         });
-        
     
         toast({
           title: "Video queued ⏳",
@@ -113,6 +126,49 @@ export default function VideoGeneration({
       }
     }
   };
+
+  const handleGenerateWithEmail = async (formData: VideoFormData) => {
+    if(creditUsage && creditUsage.total_video_credits - creditUsage.video_credits_used <= 0) {
+      setIsShowCreditLockout(true);
+      return;
+    } else {
+      try {
+        setIsWaiting(false)
+        setIsGenerating(true);
+        setBackStepValid(false);
+    
+        /* 1️⃣ request generation */
+        const result = await generateMedia({
+          prompt: formData.video_prompt.replace(/\n/g, ' '),
+          media_type: "video",
+          cron_job: true
+        });
+    
+        setStepData({
+          video_prompt: formData.video_prompt,
+          job_id: result.jobId,
+          media_id: result.mediaId,
+          isEmailNotify: true
+        });
+    
+        setNextStepValid(true);
+    
+        toast({
+          title: "Video Request Received 📩",
+          description: "We’re generating your video. You’ll receive an email once it’s ready.",
+        })
+    
+      } catch (err: any) {
+        console.error("Video Generation Error",err);
+        setOpenFeedbackModal(true);
+    
+      } finally {
+        setIsGenerating(false);
+        setBackStepValid(true);
+        setNextStepValid(true);
+      }
+    }
+  }
 
   const loadCreditUsage = async () => {
       try {
@@ -159,7 +215,7 @@ export default function VideoGeneration({
 
         <Form {...videoForm}>
           <form
-            onSubmit={videoForm.handleSubmit(handleGenerate)}
+            onSubmit={videoForm.handleSubmit(handleOnSubmit)}
             className="space-y-6 flex flex-col"
           >
             <FormField
@@ -179,6 +235,63 @@ export default function VideoGeneration({
                 </FormItem>
               )}
             />
+            {/* Delivery Type Selector */}
+            <FormField
+              control={videoForm.control}
+              name="delivery_type"
+              render={({ field }) => {
+                const selected = useWatch({
+                  control: videoForm.control,
+                  name: "delivery_type",
+                })
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Choose how you’d like to get your video</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="pt-2 flex gap-4"
+                      >
+                        <FormItem>
+                          <div className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem value="instant" />
+                            </FormControl>
+                            <FormLabel className="font-normal">I wait until video finish</FormLabel>
+                          </div>
+                          
+                        </FormItem>
+
+                        <FormItem>
+                          <div className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem value="email" />
+                            </FormControl>
+                            <FormLabel className="font-normal">Notify me through my email</FormLabel>
+                          </div>
+                          
+                        </FormItem>
+                      </RadioGroup>
+                    </FormControl>
+                    {selected === "instant" && (
+                      <p className="text-sm text-muted-foreground pt-4">
+                        Stay on this page while we generate your video. It usually takes around a minute.
+                      </p>
+                    )}
+                    {selected === "email" && (
+                      <p className="text-sm text-muted-foreground pt-4">
+                        We’ll generate your video in the background and notify it to your email once ready.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )
+              }
+              }
+            />
+
 
             <Button
               type="submit"
@@ -197,7 +310,7 @@ export default function VideoGeneration({
           </form>
         </Form>
         {/* Video Preview Box */}
-        {(videoUrl || isGenerating) && (
+        {isWaiting && (videoUrl || isGenerating) && (
           <div className="pt-4">
             <p className="block mb-2 text-sm font-medium text-muted-foreground">
               Preview

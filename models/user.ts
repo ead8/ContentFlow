@@ -8,9 +8,10 @@ export type UserProfile = {
 export type OnboardingType = {
     user_id: string
     platforms: string[]
-    content_styles: string[]
-    post_frequency: string
-    start_date: string | null
+    pain_points: string[]
+    business_type: string
+    niche_title: string
+    niche_description: string
 }
 
 
