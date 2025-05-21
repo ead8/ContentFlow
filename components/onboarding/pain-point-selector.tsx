@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Check } from 'lucide-react';
 import OnboardingTitle from './onboarding-title';
 
@@ -9,12 +8,19 @@ const painPoints = [
   { label: 'I overthing everything', icon: '/images/icons/overthink.svg' },
 ];
 
-export default function PainPointSelector() {
-  const [selected, setSelected] = useState<string[]>([])
+interface PainPointSelectorProps {
+  selected: string[];
+  setSelected: (selected: string[]) => void;
+}
 
+export default function PainPointSelector({ selected, setSelected }: PainPointSelectorProps) {
   const toggleSelection = (label: string) => {
-    setSelected((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
-  }
+    setSelected(
+      selected.includes(label)
+        ? selected.filter((item) => item !== label)
+        : [...selected, label]
+    );
+  };
 
   return (
     <div className="w-full py-4 mx-auto space-y-6">
@@ -29,13 +35,13 @@ export default function PainPointSelector() {
       {/* Options */}
       <div className="flex flex-col items-center gap-4">
         {painPoints.map(({ label, icon }) => {
-          const isSelected = selected.includes(label)
+          const isSelected = selected.includes(label);
           return (
             <button
               key={label}
               onClick={() => toggleSelection(label)}
               className={`w-96 relative flex items-center border rounded-xl p-4 text-left transition duration-200 cursor-pointer ${
-                isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-400"
+                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-400'
               }`}
               type="button"
               aria-pressed={isSelected}
@@ -54,7 +60,7 @@ export default function PainPointSelector() {
                 {isSelected && <Check className="w-3 h-3 text-white" />}
               </div>
             </button>
-          )
+          );
         })}
       </div>
     </div>
