@@ -29,7 +29,8 @@ export type PlatformPost = {
 
 export type MediaGenerationRequest = {
   prompt: string;
-  media_type: string
+  media_type: string,
+  cron_job: boolean
 }
 
 

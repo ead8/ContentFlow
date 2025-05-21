@@ -4,15 +4,11 @@ import { CreditUsage, OnboardingType, UserProfile } from '@/models/user'
 export async function handleOnboarding(onboardingData: OnboardingType): Promise<boolean> {
   const supabase = createClient()
 
-  const { user_id, platforms, content_styles, post_frequency
-
-, start_date } = onboardingData
+  const { user_id, platforms, business_type, pain_points, niche_description, niche_title } = onboardingData
 
   // Save preferences
   const { error: prefError } = await supabase.from('user_preference').insert([
-    { user_id, platforms, content_styles, post_frequency
-
-, start_date },
+    { user_id, platforms, business_type, pain_points, niche_description, niche_title },
   ])
 
   if (prefError) {
