@@ -26,7 +26,6 @@ const ScheduleConfirm = ({ data, setStepData, setBackStepValid }: Step5ScheduleC
       try {
         setIsPublishing(true)
         setBackStepValid(false)
-  
         const postId = await createPost({
           ...data,
           step_5: {
