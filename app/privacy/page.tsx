@@ -1,7 +1,31 @@
+import { ModeToggle } from "@/components/mode-toggle";
+import { Button } from "@/components/ui";
+import { BrainCircuit } from "lucide-react";
+import Link from "next/link";
+
 // app/privacy-policy/page.tsx
 export default function PrivacyPolicyPage() {
   return (
-    <main className="max-w-4xl mx-auto px-4 py-12">
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+        <div className="container flex h-16 items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-xl">
+            <BrainCircuit className="h-6 w-6 text-primary" />
+            <span>Intuity Sync</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login">
+              <Button variant="ghost">Log in</Button>
+            </Link>
+            <Link href="/signup">
+              <Button>Sign up</Button>
+            </Link>
+            <ModeToggle />
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-12">
       <section className="space-y-8 text-gray-800">
         <h1 className="text-4xl font-bold text-primary">Privacy Policy</h1>
 
@@ -116,5 +140,26 @@ export default function PrivacyPolicyPage() {
         <p className="font-medium text-primary">📧 Griffin@intuityai.com</p>
       </section>
     </main>
+        
+      <footer className="border-t py-6 md:py-0">
+        <div className="container flex flex-col md:flex-row items-center justify-between gap-4 md:h-16">
+          <p className="text-sm text-muted-foreground">
+            © 2025 Intuity Sync. All rights reserved.
+          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground">
+              Contact
+            </Link>
+          </div>
+        </div>
+      </footer>
+
+    </div>
   );
 }
