@@ -23,15 +23,33 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If the user is authenticated and trying to access auth pages, redirect to dashboard
-  if (session && (
-    req.nextUrl.pathname === '/login' ||
-    req.nextUrl.pathname === '/signup' ||
-    req.nextUrl.pathname === '/'
-  )) {
-    const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/dashboard'
-    return NextResponse.redirect(redirectUrl)
+  // For authenticated users, check role-based access
+  if (session) {
+    // Get user profile to check role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    // If user role is not admin, restrict access to dashboard tools
+    if (profile?.role !== 'admin' && (
+      req.nextUrl.pathname.startsWith('/dashboard')
+    )) {
+      // Redirect to generate or show access denied
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = '/generate'
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // Redirect authenticated users away from auth pages
+    if (req.nextUrl.pathname === '/login' ||
+        req.nextUrl.pathname === '/signup' ||
+        req.nextUrl.pathname === '/') {
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = '/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
   }
 
   return res
