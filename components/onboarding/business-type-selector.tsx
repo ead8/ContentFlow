@@ -20,14 +20,14 @@ export default function BusinessTypeSelector({
   setValue,
 }: BusinessTypeSelectorProps) {
   return (
-    <div className="p-6 mx-auto space-y-6">
+    <div className="py-6 mx-auto space-y-6">
       {/* Question */}
       <div className="w-full">
         <OnboardingTitle title="What business type do you identify yourself with?" />
       </div>
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
         {businessTypes.map(({ label, icon }) => {
           const isSelected = value === label;
           return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import {
   Eye,
@@ -26,123 +26,128 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
-
-// Define the Post type based on the provided data structure
-interface Post {
-  id: number
-  user_id: string
-  topic: string
-  platform: string[]
-  status: "draft" | "published" | "scheduled"
-  created_at: string
-}
+import { Post } from "@/models/content"
+import { fetchPostList } from "@/lib/api/supabase"
 
 // Sample data for demonstration - expanded for pagination
-const samplePosts: Post[] = [
-  {
-    id: 15,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Write about AI in Health Care",
-    platform: ["linkedin", "instagram", "youtube", "twitter"],
-    status: "draft",
-    created_at: "2025-05-14T11:23:50.821385+00:00",
-  },
-  {
-    id: 16,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "The Future of Remote Work",
-    platform: ["linkedin", "twitter"],
-    status: "published",
-    created_at: "2025-05-13T09:15:30.821385+00:00",
-  },
-  {
-    id: 17,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Sustainable Technology Practices",
-    platform: ["linkedin", "instagram"],
-    status: "scheduled",
-    created_at: "2025-05-12T14:45:20.821385+00:00",
-  },
-  {
-    id: 18,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Blockchain in Supply Chain Management",
-    platform: ["linkedin", "youtube"],
-    status: "draft",
-    created_at: "2025-05-11T16:30:10.821385+00:00",
-  },
-  {
-    id: 19,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Cybersecurity Best Practices for Small Businesses",
-    platform: ["linkedin", "twitter", "instagram"],
-    status: "published",
-    created_at: "2025-05-10T10:20:45.821385+00:00",
-  },
-  {
-    id: 20,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Machine Learning for Beginners",
-    platform: ["linkedin", "youtube"],
-    status: "draft",
-    created_at: "2025-05-09T08:15:30.821385+00:00",
-  },
-  {
-    id: 21,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Digital Marketing Trends 2025",
-    platform: ["instagram", "twitter"],
-    status: "scheduled",
-    created_at: "2025-05-08T13:40:20.821385+00:00",
-  },
-  {
-    id: 22,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "NFTs and the Future of Digital Ownership",
-    platform: ["linkedin", "twitter", "youtube"],
-    status: "published",
-    created_at: "2025-05-07T15:25:10.821385+00:00",
-  },
-  {
-    id: 23,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Building a Personal Brand Online",
-    platform: ["linkedin", "instagram"],
-    status: "draft",
-    created_at: "2025-05-06T09:10:45.821385+00:00",
-  },
-  {
-    id: 24,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "The Ethics of Artificial Intelligence",
-    platform: ["linkedin", "twitter", "youtube"],
-    status: "scheduled",
-    created_at: "2025-05-05T11:35:30.821385+00:00",
-  },
-  {
-    id: 25,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Cloud Computing for Small Businesses",
-    platform: ["linkedin"],
-    status: "published",
-    created_at: "2025-05-04T14:50:20.821385+00:00",
-  },
-  {
-    id: 26,
-    user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-    topic: "Social Media Strategy for Startups",
-    platform: ["instagram", "twitter"],
-    status: "draft",
-    created_at: "2025-05-03T16:15:10.821385+00:00",
-  },
-]
+// const samplePosts: Post[] = [
+//   {
+//     id: 15,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Write about AI in Health Care",
+//     platform: ["linkedin", "instagram", "youtube", "twitter"],
+//     status: "draft",
+//     created_at: "2025-05-14T11:23:50.821385+00:00",
+//     schedule_at: "2025-05-14T11:23:50.821385+00:00",
+//   },
+//   {
+//     id: 16,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "The Future of Remote Work",
+//     platform: ["linkedin", "twitter"],
+//     status: "published",
+//     created_at: "2025-05-13T09:15:30.821385+00:00",
+//     schedule_at: "2025-05-13T09:15:30.821385+00:00",
+//   },
+//   {
+//     id: 17,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Sustainable Technology Practices",
+//     platform: ["linkedin", "instagram"],
+//     status: "scheduled",
+//     created_at: "2025-05-12T14:45:20.821385+00:00",
+//     schedule_at: "2025-05-12T14:45:20.821385+00:00",
+//   },
+//   {
+//     id: 18,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Blockchain in Supply Chain Management",
+//     platform: ["linkedin", "youtube"],
+//     status: "draft",
+//     created_at: "2025-05-11T16:30:10.821385+00:00",
+//     schedule_at: "2025-05-11T16:30:10.821385+00:00",
+//   },
+//   {
+//     id: 19,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Cybersecurity Best Practices for Small Businesses",
+//     platform: ["linkedin", "twitter", "instagram"],
+//     status: "published",
+//     created_at: "2025-05-10T10:20:45.821385+00:00",
+//     schedule_at: "2025-05-10T10:20:45.821385+00:00",
+//   },
+//   {
+//     id: 20,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Machine Learning for Beginners",
+//     platform: ["linkedin", "youtube"],
+//     status: "draft",
+//     created_at: "2025-05-09T08:15:30.821385+00:00",
+//     schedule_at: "2025-05-09T08:15:30.821385+00:00",
+//   },
+//   {
+//     id: 21,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Digital Marketing Trends 2025",
+//     platform: ["instagram", "twitter"],
+//     status: "scheduled",
+//     created_at: "2025-05-08T13:40:20.821385+00:00",
+//     schedule_at: "2025-05-08T13:40:20.821385+00:00",
+//   },
+//   {
+//     id: 22,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "NFTs and the Future of Digital Ownership",
+//     platform: ["linkedin", "twitter", "youtube"],
+//     status: "published",
+//     created_at: "2025-05-07T15:25:10.821385+00:00",
+//     schedule_at: "2025-05-07T15:25:10.821385+00:00",
+//   },
+//   {
+//     id: 23,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Building a Personal Brand Online",
+//     platform: ["linkedin", "instagram"],
+//     status: "draft",
+//     created_at: "2025-05-06T09:10:45.821385+00:00",
+//     schedule_at: "2025-05-06T09:10:45.821385+00:00",
+//   },
+//   {
+//     id: 24,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "The Ethics of Artificial Intelligence",
+//     platform: ["linkedin", "twitter", "youtube"],
+//     status: "scheduled",
+//     created_at: "2025-05-05T11:35:30.821385+00:00",
+//     schedule_at: "2025-05-05T11:35:30.821385+00:00",
+//   },
+//   {
+//     id: 25,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Cloud Computing for Small Businesses",
+//     platform: ["linkedin"],
+//     status: "published",
+//     created_at: "2025-05-04T14:50:20.821385+00:00",
+//     schedule_at: "2025-05-04T14:50:20.821385+00:00",
+//   },
+//   {
+//     id: 26,
+//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
+//     topic: "Social Media Strategy for Startups",
+//     platform: ["instagram", "twitter"],
+//     status: "draft",
+//     created_at: "2025-05-03T16:15:10.821385+00:00",
+//     schedule_at: "2025-05-03T16:15:10.821385+00:00",
+//   },
+// ]
 
 const PostsTable = () => {
   const router = useRouter()  
-  const [posts] = useState<Post[]>(samplePosts)
+  const [posts, setPosts] = useState<Post[]>([])
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(false)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -183,15 +188,15 @@ const PostsTable = () => {
   // Platform icon mapping
   const PlatformIcon = ({ platform }: { platform: string }) => {
     switch (platform) {
-      case "linkedin":
+      case "Linkedin":
         return <Linkedin className="h-4 w-4 text-blue-600" />
-      case "instagram":
+      case "Instagram":
         return <Instagram className="h-4 w-4 text-pink-600" />
-      case "youtube":
+      case "YouTube":
         return <Youtube className="h-4 w-4 text-red-600" />
-      case "twitter":
+      case "X-Titter":
         return <Twitter className="h-4 w-4 text-sky-500" />
-      case "facebook":
+      case "Facebook":
         return <Facebook className="h-4 w-4 text-blue-700" />
       default:
         return null
@@ -276,6 +281,26 @@ const PostsTable = () => {
     return pageNumbers
   }
 
+  const loadPostData = async () => {
+      try {
+        setIsDataLoading(true)
+        const postList = await fetchPostList();
+
+        setPosts(postList)
+      } catch (error) {
+        console.error("Failed to load credit usage:", error)
+      } finally {
+        setIsDataLoading(false)
+      }
+  }
+  
+  useEffect(() => {
+    loadPostData()
+  }, [])
+
+  
+  if(posts[5]?.platform_variants) console.log(Object.keys(posts[5]?.platform_variants))
+
   return (
     <Card className="w-full shadow-sm">
       <CardHeader className="pb-2">
@@ -316,9 +341,10 @@ const PostsTable = () => {
               <TableRow>
                 <TableHead className="w-[50px]">ID</TableHead>
                 <TableHead>Topic</TableHead>
-                <TableHead className="hidden md:table-cell">Platforms</TableHead>
-                <TableHead className="hidden sm:table-cell">Created</TableHead>
+                {/* <TableHead className="hidden md:table-cell">Platforms</TableHead> */}
+                <TableHead className="hidden sm:table-cell">Created on</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Scheduled on</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -328,19 +354,19 @@ const PostsTable = () => {
                   <TableRow key={post.id} className="group">
                     <TableCell className="font-medium">{post.id}</TableCell>
                     <TableCell className="max-w-[200px] truncate font-medium">{post.topic}</TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    {/* <TableCell className="hidden md:table-cell">
                       <div className="flex space-x-1">
-                        {post.platform.map((platform) => (
+                        {post.platform_variants && Object.keys(post.platform_variants).map((key) => (
                           <div
-                            key={platform}
+                            key={key}
                             className="rounded-full p-1 bg-gray-100 group-hover:bg-gray-200 transition-colors"
-                            title={platform.charAt(0).toUpperCase() + platform.slice(1)}
+                            title={key.charAt(0).toUpperCase() + key.slice(1)}
                           >
-                            <PlatformIcon platform={platform} />
+                            <PlatformIcon platform={key} />
                           </div>
                         ))}
                       </div>
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell className="hidden sm:table-cell text-gray-500">
                       <div className="flex items-center">
                         <Calendar className="mr-1 h-3 w-3" />
@@ -348,6 +374,12 @@ const PostsTable = () => {
                       </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(post.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Calendar className="mr-1 h-3 w-3" />
+                        {format(new Date(post.created_at), "MMM d, yyyy")}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end">
                         {/* <Button
