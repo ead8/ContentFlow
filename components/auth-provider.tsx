@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react'
 type User = {
   id: string
   email: string
-  role: 'free' | 'creator' | 'pro' | 'agency' | 'enterprise'
+  role: 'admin' | 'user'
   credits: number
 }
 
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email!,
-          role: data?.role || 'free',
+          role: data?.role || 'user',
           credits: data?.credits || 0
         })
       }
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: session.user.id,
               email: session.user.email!,
-              role: data?.role || 'free',
+              role: data?.role || 'user',
               credits: data?.credits || 0
             })
             
