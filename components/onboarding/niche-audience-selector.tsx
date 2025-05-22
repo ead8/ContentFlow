@@ -27,7 +27,7 @@ export default function NicheAudienceForm({
   }, [value.description]);
 
   return (
-    <div className="w-full max-w-xl mx-auto py-8">
+    <div className="w-full max-w-xl mx-auto py-6">
       <OnboardingTitle
         title="What's your primary niche?"
         subtitle="Tell us more about your content focus and audience"

@@ -167,10 +167,10 @@ export default function MultiStepProgress() {
             />
         </div>
         <div className="w-full px-8">
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
+            <div className="flex justify-between mb-4">
+                <div className="flex flex-col gap-2 md:flex-row">
                     <p className="font-medium">Step <span className="text-lg text-primary font-bold">{currentStep + 1}</span>/4</p>
-                    <p className="text-lg font-medium">{steps[currentStep]}</p>
+                    {/* <p className="text-lg font-medium">{steps[currentStep]}</p> */}
                 </div>
                 <Link href="/dashboard">
                     <div className="flex items-center gap-2 text-primary cursor-pointer font-medium">
@@ -179,13 +179,14 @@ export default function MultiStepProgress() {
                     </div>
                 </Link>
             </div>
+            <p className="text-lg font-medium">{steps[currentStep]}</p>
             {renderStep()}{/* Navigation */}
             <div className="flex justify-end items-center gap-8 mt-8">
               {currentStep !== 0 && (
                 <Button
                   variant="outline"
                   disabled={isLoading}
-                  className="w-72 text-sm text-gray-500 hover:underline"
+                  className="flex-1 text-sm text-gray-500 hover:underline"
                   onClick={() =>
                     setCurrentStep((prev) => Math.max(prev - 1, 0))
                   }
@@ -195,7 +196,7 @@ export default function MultiStepProgress() {
               )}
               <Button
                 variant="default"
-                className="w-72 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                className="flex-1 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                 onClick={handleNext}
                 disabled={isLoading || !isNextStepValidMap[currentStep]}
               >

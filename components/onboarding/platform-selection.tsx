@@ -31,7 +31,7 @@ export default function PlatformSelector({ selected, setSelected }: PlatformSele
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto py-8">
+    <div className="w-full max-w-3xl mx-auto py-6">
       <OnboardingTitle title="Which platforms do you currently post on?" />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8">

@@ -2,11 +2,11 @@ import { Check } from 'lucide-react';
 import OnboardingTitle from './onboarding-title';
 
 const painPoints = [
-  { label: 'I do not know what to post', icon: '/images/icons/know.svg' },
-  { label: 'I can not stay consistent', icon: '/images/icons/calendar.svg' },
-  { label: 'I am not getting engagement', icon: '/images/icons/engagement.svg' },
-  { label: 'I overthing everything', icon: '/images/icons/overthink.svg' },
-];
+  { label: "I don't know what to post", icon: '/images/icons/know.svg' },
+  { label: "I can't stay consistent", icon: '/images/icons/calendar.svg' },
+  { label: "I'm not getting engagement", icon: '/images/icons/engagement.svg' },
+  { label: 'I overthink everything', icon: '/images/icons/overthink.svg' },
+]
 
 interface PainPointSelectorProps {
   selected: string[];
