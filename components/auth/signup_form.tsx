@@ -71,7 +71,7 @@ const SignUpForm = () => {
   }
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full px-6 pt-6 space-y-8 lg:p-0">
       <div className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight">Signup</h1>
         <p className="text-gray-600">Enter the details below and continue.</p>

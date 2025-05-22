@@ -199,8 +199,8 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
       <CreditLockoutModal
         isOpen={isShowCreditLockout}
         onClose={() => {setIsShowCreditLockout(false)}}
-        usedCredits={260}
-        totalCredits={260}
+        usedCredits={creditUsage?.image_credits_used ?? 0}
+        totalCredits={creditUsage?.total_image_credits ?? 0}
         onUpgradeClick={() => {}}
       />
       <NotifyCreditWarning ref={imageCreditRef} type="image" />

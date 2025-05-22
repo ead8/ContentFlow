@@ -1,3 +1,4 @@
+import { Post } from '@/models/content'
 import { createClient } from '../supabase/client'
 import { CreditUsage, OnboardingType, UserProfile } from '@/models/user'
 
@@ -70,4 +71,27 @@ export async function fetchCreditUsage(): Promise<CreditUsage> {
     }
 
     return data as CreditUsage
+}
+
+
+export async function fetchPostList(): Promise<Post[]> {
+  const supabase = createClient()
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const session = sessionData.session
+
+  if (sessionError || !session || !session.user) {
+    throw new Error("User is not authenticated")
+  }
+
+  const { data, error } = await supabase
+  .from('posts')
+  .select('*')
+  .eq('user_id', session.user.id)
+
+  if(error) {
+    throw new Error(error.message)
+  }
+
+  return data || []
 }

@@ -56,7 +56,7 @@ export default function ResetPasswordForm() {
 
   if (isEmailSent) {
     return (
-      <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
+      <div className="flex flex-col gap-4 w-full max-w-md mx-auto px-6 pt-6">
         {/* <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()} /> */}
         <div className="flex flex-col items-center gap-4 p-8 border rounded-lg">
           <MailCheck className="w-12 h-12 text-green-500" />
@@ -71,7 +71,7 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
+    <div className="flex flex-col gap-4 w-full max-w-md mx-auto px-6 pt-6 lg:p-0">
       <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()} />
       <h1 className="text-2xl font-bold mb-4">Reset Password</h1>
       <Form {...form}>

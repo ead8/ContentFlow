@@ -2,8 +2,8 @@ import Image from "next/image";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full h-screen flex">
-        <div className="bg-[#13032C] flex-1 flex flex-col">
+    <div className="w-full flex lg:h-screen">
+        <div className="hidden bg-[#13032C] flex-1 lg:flex flex-col">
             <div className="relative w-full h-full">
                 <Image
                 src={"/images/background/auth_background.svg"}

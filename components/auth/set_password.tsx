@@ -83,7 +83,7 @@ export default function SetPasswordForm() {
     openOnboardingModal ? (
       <OnboardingModal onStart={() => router.push('onboarding')}/>
     ) : (
-      <div className="flex flex-col gap-4 w-full">
+      <div className="flex flex-col gap-4 w-full px-6 pt-6 lg:p-0">
         {/* <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()}/> */}
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold">Set Password</h1>
