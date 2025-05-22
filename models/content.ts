@@ -39,9 +39,37 @@ export interface MediaGenerationResult {
   jobId: string;
 }
 
-
 export type AddFeedbackRequest = {
   feedback: string;
   rating: number;
   source: string;
 }
+
+export type Post = {
+  id: number
+  user_id: string
+  topic: string
+  platform_variants: PlatformVariants
+  status: "draft" | "published" | "scheduled"
+  created_at: string,
+  schedule_at: string
+}
+
+export type PlatformVariant = {
+  image?: string;
+  video?: string;
+  video_prompt?: string;
+  image_prompt?: string;
+  source?: string;
+  post?: string;
+  text?: string;
+  caption?: string;
+  hashtags?: string; // joined hashtags
+  call_to_action?: string;
+  schedule_at?: string | Date;
+};
+
+
+export type PlatformVariants = {
+  [platform: string]: PlatformVariant;
+};

@@ -72,7 +72,7 @@ const LoginForm = () =>{
   }
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full px-6 pt-16 space-y-8 lg:p-0">
       <div className="space-y-2 text-center">
         <h1 className="text-xl font-semibold tracking-tight">
           Welcome to <span className="text-primary">Intuity Sync</span>

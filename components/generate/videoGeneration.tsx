@@ -247,7 +247,7 @@ export default function VideoGeneration({
                 
                 return (
                   <FormItem>
-                    <FormLabel>Choose how you’d like to get your video</FormLabel>
+                    <FormLabel>Choose how you'd like to receive your video</FormLabel>
                     <FormControl>
                       <RadioGroup
                         onValueChange={field.onChange}
@@ -259,30 +259,27 @@ export default function VideoGeneration({
                             <FormControl>
                               <RadioGroupItem value="instant" />
                             </FormControl>
-                            <FormLabel className="font-normal">I wait until video finish</FormLabel>
+                            <FormLabel className="font-normal">I'll wait here while the video is being generated</FormLabel>
                           </div>
-                          
                         </FormItem>
-
                         <FormItem>
                           <div className="flex items-center space-x-2">
                             <FormControl>
                               <RadioGroupItem value="email" />
                             </FormControl>
-                            <FormLabel className="font-normal">Notify me through my email</FormLabel>
+                            <FormLabel className="font-normal">Notify me via email when it's ready</FormLabel>
                           </div>
-                          
                         </FormItem>
                       </RadioGroup>
                     </FormControl>
                     {selected === "instant" && (
                       <p className="text-sm text-muted-foreground pt-4">
-                        Stay on this page while we generate your video. It usually takes around a minute.
+                        Stay on this page while we generate your video. It may take a few minutes to generate
                       </p>
                     )}
                     {selected === "email" && (
                       <p className="text-sm text-muted-foreground pt-4">
-                        We’ll generate your video in the background and notify it to your email once ready.
+                        We'll generate your video in the background and notify you by email once it's ready.
                       </p>
                     )}
                     <FormMessage />
@@ -337,8 +334,8 @@ export default function VideoGeneration({
       <CreditLockoutModal
         isOpen={isShowCreditLockout}
         onClose={() => {setIsShowCreditLockout(false)}}
-        usedCredits={260}
-        totalCredits={260}
+        usedCredits={creditUsage?.video_credits_used ?? 0}
+        totalCredits={creditUsage?.total_video_credits ?? 0}
         onUpgradeClick={() => {}}
       />
       <NotifyCreditWarning
