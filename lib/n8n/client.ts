@@ -118,7 +118,7 @@ export async function generateContent(data: ContentGenerationRequest): Promise<C
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data), // Send the form data to n8n
+    body: JSON.stringify({...data, user_id: session.user.id}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -281,7 +281,6 @@ export async function createPost(data: WizardFormData): Promise<string> {
       caption: platformPost.caption,
       hashtags: (platformPost.hashtags || []).join(" "),
       call_to_action: platformPost.call_to_action,
-      schedule_at: scheduleAt,
     };
   });
 
@@ -295,6 +294,7 @@ export async function createPost(data: WizardFormData): Promise<string> {
       topic,
       tone,
       platform_variants,
+      schedule_at: scheduleAt,
       status: "Draft"
     })
   })
