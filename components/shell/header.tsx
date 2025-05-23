@@ -16,6 +16,7 @@ import { Sheet, SheetTrigger } from "@/components/ui/sheet"
 import { ModeToggle } from "@/components/mode-toggle"
 import { MobileSidebar } from "./mobile-sidebar"
 import { useAuth } from "../auth-provider"
+import { CreditsBadge } from "../credit/credits-badge"
 
 interface HeaderProps {
   isSidebarOpen: boolean
@@ -49,24 +50,8 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
             className="w-full bg-gray-100 pl-8 focus-visible:ring-0 dark:bg-gray-800"
           />
         </div>
-      </div>
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center">
-          <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-orange-100">
-            <svg className="h-5 w-5 text-orange-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                fill="currentColor"
-              />
-            </svg>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-semibold text-blue-500">
-              75<span className="text-gray-500 dark:text-gray-400">/100</span>
-            </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Credits Available</span>
-          </div>
-        </div>
+      </div>      <div className="flex items-center space-x-4">
+        <CreditsBadge />
         <Button className="bg-blue-500 hover:bg-blue-600">Upgrade</Button>
         <div className="relative">
           <Button variant="ghost" size="icon" className="relative">
