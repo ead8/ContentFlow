@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Lock } from 'lucide-react'
 
+
 interface CreditLockoutModalProps {
   isOpen: boolean
   onClose: () => void
@@ -25,10 +26,10 @@ const CreditLockoutModal = ({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <Lock className="text-destructive" />
-            <DialogTitle className="text-lg">You're out of credits</DialogTitle>
+            <DialogTitle className="text-lg">You&apos;re out of credits</DialogTitle>
           </div>
           <DialogDescription className="mt-2 text-sm text-muted-foreground">
-            You've used all your {totalCredits} credits this month.
+            You&pos;ve used all your {totalCredits} credits this month.
           </DialogDescription>
         </DialogHeader>
 
