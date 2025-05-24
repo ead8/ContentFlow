@@ -17,16 +17,15 @@ export function Sidebar({ className }: SidebarProps) {
         <Link href="/" className="flex items-center relative">
           <Image src="/images/logo/intuitySync_logo.svg" alt="Intuity Sync" width={32} height={32} className="h-28 w-28" />
         </Link>
-      </div>
-
-      {/* Create Post Button */}
+      </div>      {/* Create Post Button */}
       <div className="px-4 py-2">
-        <Link href={'/generate'}>
-          <Button
+        <Link href={'/generate'}>          <Button
             variant="outline"
-            className="w-full justify-center border-[#2a2162] bg-transparent text-white hover:bg-[#2a2162] hover:text-white"
+            className="w-full justify-center bg-gradient-to-r from-[#13032C] to-[#13042E]  text-white border-[0.5px] border-dashed border-[#339DFF] shadow-[0_4px_20px_-0px_#3758F999] hover:opacity-90"
           >
-            <Plus className="mr-2 h-5 w-5" />
+            <div className="mr-2 h-4 w-4 rounded-full border border-white flex items-center justify-center">
+              <Plus className="h-23w-2" />
+            </div>
             Create Post
           </Button>
         </Link>
