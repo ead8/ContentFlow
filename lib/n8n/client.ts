@@ -1,7 +1,6 @@
 import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
 import { createClient } from '@/lib/supabase/client';
 import { AddFeedbackRequest, ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
-import { CreditUsage } from '@/models/user';
 
 const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
 const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
@@ -54,40 +53,28 @@ export async function fetchPostPerformance() {
   return response.json();
 }
 
-export async function fetchCreditUsage(): Promise<CreditUsage> {
-    const supabase = createClient()
-    const { data: { session }} = await supabase.auth.getSession()
+export async function fetchCreditUsage() {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session) {
-      throw new Error('User is not authenticated')
-    }
-    
-    // First try to get user's credit usage
-    const { data, error } = await supabase
-    .from('usage')
-    .select('*')
-    .eq('user_id', session.user.id)
-    // .single()
-    
-    // If no data or error, return default values
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
 
-    if (error || !data || data.length === 0) {
-      console.warn('No credit usage data found for user, using defaults')
-      
-      // Return default credit values
-      return {
-        image_credits_used: 18,
-        video_credits_used: 3,
-        total_image_credits: 25, 
-        total_video_credits: 5,
-        user_id: session.user.id,
-        id: 0
-      } as CreditUsage
-    }
-    
-    // If multiple rows, take the first one
-    return data[0] as CreditUsage
+  const response = await fetch(`${N8N_API_URL}/api/v1/credits/usage`, {
+    headers: {
+      'X-N8N-API-KEY': N8N_API_KEY ?? '',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch credit usage');
+  }
+
+  return response.json();
 }
+
 export async function fetchAccountSummary() {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -219,7 +206,7 @@ export async function generateMedia(request: MediaGenerationRequest): Promise<Me
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({...request, user_id: session.user.id}), // Send the form data to n8n
+    body: JSON.stringify({...request, user_id: session.user.id, user_email: session.user.email}), // Send the form data to n8n
   });
 
   if (!response.ok) {
@@ -355,6 +342,9 @@ export async function addFeedback(data: AddFeedbackRequest): Promise<string> {
     feedback,
     source
   } = data;
+
+
+
   const response = await fetch(n8nWebhookUrl, {
     method: "POST",
     headers: {

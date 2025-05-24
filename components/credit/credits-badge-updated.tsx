@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Coins, Info, Image, Video } from "lucide-react"
-import { fetchCreditUsage } from "@/lib/n8n/client"
+import { fetchCreditUsage } from "@/lib/api/supabase" 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function CreditsBadge() {

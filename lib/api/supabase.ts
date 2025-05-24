@@ -63,8 +63,7 @@ export async function fetchCreditUsage(): Promise<CreditUsage> {
     .from('usage')
     .select('*')
     .eq('user_id', session.user.id)
-    .single()
-    
+    ?.single()
 
     if (error) {
       throw new Error(error.message)

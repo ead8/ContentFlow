@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Info, Image as LucideImage, Video } from "lucide-react"
 import Image from "next/image"
-import { fetchCreditUsage } from "@/lib/n8n/client"
+import { fetchCreditUsage } from "@/lib/api/supabase" 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function CreditsBadge() {
@@ -43,8 +43,8 @@ export function CreditsBadge() {
     return null;
   }
 
-  const imageRemaining = creditUsage.total_image_credits - creditUsage.image_credits_used;
-  const videoRemaining = creditUsage.total_video_credits - creditUsage.video_credits_used;
+  // const imageRemaining = creditUsage.total_image_credits - creditUsage.image_credits_used;
+  // const videoRemaining = creditUsage.total_video_credits - creditUsage.video_credits_used;
   
   // Calculate progress percentages
   const imageProgress = (creditUsage.image_credits_used / creditUsage.total_image_credits) * 100;
