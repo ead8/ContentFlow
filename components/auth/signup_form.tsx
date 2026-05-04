@@ -71,21 +71,30 @@ const SignUpForm = () => {
   }
 
   return (
-    <div className="w-full px-6 pt-6 space-y-8 lg:p-0">
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight">Signup</h1>
-        <p className="text-gray-600">Enter the details below and continue.</p>
+    <div className="w-full max-w-md mx-auto px-4 py-12 space-y-8">
+      <div className="space-y-2 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
+            <svg className="h-6 w-6 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold text-foreground">
+          Join ContentFlow
+        </h1>
+        <p className="text-muted-foreground">Create amazing content with AI assistance</p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Radio Group */}
+          {/* User Type Radio Group */}
           <FormField
             control={form.control}
             name="userType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Who are you?</FormLabel>
+                <FormLabel className="text-foreground">I am a:</FormLabel>
                 <FormControl>
                   <RadioGroup
                     onValueChange={field.onChange}
@@ -95,23 +104,23 @@ const SignUpForm = () => {
                     {[
                       { value: "Creator", label: "Creator" },
                       { value: "Agency", label: "Agency" },
-                      { value: "Business Owner", label: "Business Owner" },
+                      { value: "Business Owner", label: "Business" },
                     ].map((option) => (
                       <label
                         key={option.value}
                         htmlFor={option.value}
-                        className={`border rounded-md p-4 flex items-center space-x-2 cursor-pointer ${
+                        className={`border rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer transition-colors ${
                           field.value === option.value
-                            ? "border-primary"
-                            : "border-gray-300"
+                            ? "border-accent bg-accent/10"
+                            : "border-border hover:border-muted-foreground"
                         }`}
                       >
                         <RadioGroupItem
                           value={option.value}
                           id={option.value}
-                          className="h-4 w-4"
+                          className="sr-only"
                         />
-                        <span className="text-sm">{option.label}</span>
+                        <span className="text-xs font-medium text-center">{option.label}</span>
                       </label>
                     ))}
                   </RadioGroup>
@@ -127,15 +136,13 @@ const SignUpForm = () => {
             name="fullName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>What is your Name?</FormLabel>
+                <FormLabel className="text-foreground">Full Name</FormLabel>
                 <FormControl>
-                  <div className="relative">
-                    <Input
-                      {...field}
-                      placeholder="Full Name"
-                      className="pr-10"
-                    />
-                  </div>
+                  <Input
+                    {...field}
+                    placeholder="John Doe"
+                    className="bg-background border-input focus:border-accent"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -148,15 +155,16 @@ const SignUpForm = () => {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Enter your Email</FormLabel>
+                <FormLabel className="text-foreground">Email Address</FormLabel>
                 <FormControl>
                   <div className="relative">
                     <Input
                       {...field}
-                      placeholder="Email"
-                      className="pr-10"
+                      type="email"
+                      placeholder="your@email.com"
+                      className="pl-4 pr-10 bg-background border-input focus:border-accent"
                     />
-                    <MailCheck className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <MailCheck className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   </div>
                 </FormControl>
                 <FormMessage />
@@ -164,16 +172,20 @@ const SignUpForm = () => {
             )}
           />
 
-          {/* Submit */}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            { isLoading ? "Sending OTP" : "Get OTP" }
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10"
+            disabled={isLoading}
+          >
+            {isLoading ? "Creating account..." : "Create Account"}
           </Button>
 
-          {/* Signup Link */}
-          <div className="text-center text-sm text-gray-600">
+          {/* Sign In Link */}
+          <div className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign In
+            <Link href="/login" className="text-accent font-medium hover:text-accent/80 transition-colors">
+              Sign in
             </Link>
           </div>
         </form>
