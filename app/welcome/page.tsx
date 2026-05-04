@@ -53,10 +53,10 @@ export default function WelcomePage() {
             <CardContent className="py-8">
                 <div className="text-center flex flex-col items-center gap-4">
                 <CardTitle className="text-xl font-bold text-center">
-                    Welcome to Intuity Sync – let’s automate your content like a pro.
+                    Welcome to ContentFlow – let&apos;s create amazing content together.
                 </CardTitle>
                 <CardDescription className="text-center text-muted-foreground mt-2">
-                    In just a few quick steps, we’ll tailor your social media automation just for you.
+                    In just a few quick steps, we&apos;ll set up your social media accounts and get you creating content.
                 </CardDescription>
                 <div className='w-full flex justify-end mt-2 gap-2'>
                     <Link href="/onboarding"><Button>Let’s Begin</Button></Link>

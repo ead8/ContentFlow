@@ -16,8 +16,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Intuity Sync - AI Social Media Automation',
-  description: 'Automate your social media content creation and scheduling with AI',
+  title: 'ContentFlow - AI Social Media Content Creation & Scheduling',
+  description: 'Create, schedule, and manage social media content across all platforms with powerful AI assistance',
 }
 
 export default function RootLayout({
