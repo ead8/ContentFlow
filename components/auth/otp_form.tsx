@@ -79,52 +79,80 @@ export default function OTPVerificationForm() {
   };
 
   return (
-    <div className="flex flex-col gap-4 px-6 pt-6 lg:p-0">
-      <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()}/>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">OTP Verification Required</h1>
-        <p className="text-sm">
-            Please enter OTP sent to <span className="text-blue-400">{email}</span>
+    <div className="w-full max-w-md mx-auto px-4 py-12 space-y-8">
+      <button
+        onClick={() => router.back()}
+        className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </button>
+
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
+        <p className="text-muted-foreground">
+          We&apos;ve sent a confirmation code to <br />
+          <span className="text-accent font-medium">{email}</span>
         </p>
       </div>
+
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <FormField
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
             control={form.control}
             name="otp"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Input your OTP code</FormLabel>
+              <FormItem>
+                <FormLabel className="text-foreground">Enter verification code</FormLabel>
                 <FormControl>
-                    <InputOTP {...field} maxLength={6} className="w-full">
-                        <InputOTPGroup className="w-full">
-                            <InputOTPSlot index={0} className="w-full"/>
-                            <InputOTPSlot index={1} className="w-full"/>
-                            <InputOTPSlot index={2} className="w-full"/>
-                            <InputOTPSlot index={3} className="w-full"/>
-                            <InputOTPSlot index={4} className="w-full"/>
-                            <InputOTPSlot index={5} className="w-full"/>
-                        </InputOTPGroup>
-                    </InputOTP>
+                  <InputOTP {...field} maxLength={6} className="flex justify-center">
+                    <InputOTPGroup className="flex gap-2">
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          className="w-12 h-12 border border-input rounded-lg bg-background text-center font-semibold text-lg focus:border-accent focus:ring-1 focus:ring-accent"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
                 </FormControl>
-                </FormItem>
+              </FormItem>
             )}
-            />
+          />
+
+          <div className="text-center text-sm text-muted-foreground">
+            {timer > 0 ? (
+              <p>
+                Resend code in{" "}
+                <span className="text-accent font-medium">{timer}s</span>
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="text-accent hover:text-accent/80 font-medium transition-colors"
+              >
+                Resend code
+              </button>
+            )}
           </div>
 
-          <p className="text-sm self-end">
-            Resend Code in <span className="text-blue-400 font-medium">{timer}s</span>
-          </p>
-          <Button type="submit" className="w-full max-w-sm mb-4" disabled={isLoading}>
-            {isLoading? "Verifying" : "Verify"}
+          <Button
+            type="submit"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10"
+            disabled={isLoading || form.watch("otp").length !== 6}
+          >
+            {isLoading ? "Verifying..." : "Verify"}
           </Button>
+
+          <div className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <a href="/login" className="text-accent font-medium hover:text-accent/80 transition-colors">
+              Sign in
+            </a>
+          </div>
         </form>
       </Form>
-
-      <p className="text-sm text-gray-400 self-center">
-        Already have an account? <a href="/login" className="text-blue-400 font-medium">Sign In</a>
-      </p>
     </div>
   );
 }
