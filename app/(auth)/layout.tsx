@@ -1,71 +1,84 @@
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full flex lg:h-screen bg-background">
-      {/* Left Sidebar - ContentFlow Branding */}
-      <div className="hidden bg-gradient-to-br from-card via-card to-muted/50 border-r border-border flex-1 lg:flex flex-col justify-between p-12">
-        {/* Top - Logo */}
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center flex-shrink-0">
-            <Sparkles className="h-6 w-6 text-accent-foreground" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">ContentFlow</h2>
-            <p className="text-xs text-muted-foreground">AI-Powered Content Platform</p>
-          </div>
+    <div className="w-full flex lg:h-screen">
+      {/* Left Banner - Tech/Circuit Theme */}
+      <div className="hidden relative lg:flex flex-1 bg-gradient-to-b from-[#1a0f3a] via-[#0f0820] to-[#0a0415] flex-col justify-between overflow-hidden">
+        {/* Circuit Background Pattern */}
+        <div className="absolute inset-0 overflow-hidden opacity-20">
+          <Image
+            src="/images/background/auth_background.svg"
+            alt="circuit background"
+            fill
+            className="object-cover"
+          />
         </div>
 
-        {/* Bottom - Value Proposition */}
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+        {/* Animated accent elements */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-accent rounded-full blur-3xl opacity-10 animate-pulse" />
+        <div className="absolute bottom-20 left-10 w-40 h-40 bg-accent rounded-full blur-3xl opacity-5 animate-pulse" />
+
+        {/* Content */}
+        <div className="relative z-10 px-12 pt-12">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
+              <svg className="h-6 w-6 text-accent-foreground" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">ContentFlow</h1>
+          </div>
+          <p className="text-accent text-sm font-medium">AI-Powered Social Content Platform</p>
+        </div>
+
+        {/* Bottom Messaging */}
+        <div className="relative z-10 px-12 pb-12 space-y-8">
+          {/* Key Features */}
+          <div className="space-y-5">
+            <div className="flex gap-4 items-start">
+              <div className="w-6 h-6 rounded bg-accent/30 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="w-1.5 h-1.5 bg-accent rounded-full" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">AI-Powered Content</h3>
-                <p className="text-sm text-muted-foreground">Create engaging posts in seconds with advanced AI</p>
+                <p className="text-white font-medium text-sm">Generate Content at Scale</p>
+                <p className="text-accent/70 text-xs mt-1">Create weeks of content in minutes with AI assistance</p>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+            <div className="flex gap-4 items-start">
+              <div className="w-6 h-6 rounded bg-accent/30 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="w-1.5 h-1.5 bg-accent rounded-full" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Real-Time Analytics</h3>
-                <p className="text-sm text-muted-foreground">Track engagement and performance across platforms</p>
+                <p className="text-white font-medium text-sm">Schedule Across Platforms</p>
+                <p className="text-accent/70 text-xs mt-1">Publish simultaneously to LinkedIn, Instagram, X, and more</p>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div className="flex gap-4 items-start">
+              <div className="w-6 h-6 rounded bg-accent/30 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="w-1.5 h-1.5 bg-accent rounded-full" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Smart Scheduling</h3>
-                <p className="text-sm text-muted-foreground">Publish at optimal times for maximum reach</p>
+                <p className="text-white font-medium text-sm">Measure What Matters</p>
+                <p className="text-accent/70 text-xs mt-1">Real-time analytics on engagement and audience growth</p>
               </div>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-border">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Join thousands of creators and businesses using ContentFlow to streamline their social media strategy and grow their audience.
+          {/* Tagline */}
+          <div className="pt-8 border-t border-accent/20">
+            <p className="text-accent/80 text-xs leading-relaxed font-light">
+              Transform your social media strategy with AI-powered content creation, intelligent scheduling, and deep analytics insights.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Auth Forms */}
-      <div className="flex-1 flex items-center justify-center px-4 py-8 lg:px-0">
+      {/* Right Form Area */}
+      <div className="flex-1 flex items-center justify-center bg-background px-4 py-12 lg:px-0">
         {children}
       </div>
     </div>
