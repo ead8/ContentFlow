@@ -72,102 +72,129 @@ const LoginForm = () =>{
   }
 
   return (
-    <div className="w-full px-6 pt-16 space-y-8 lg:p-0">
+    <div className="w-full max-w-md mx-auto px-4 py-12 space-y-8">
       <div className="space-y-2 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Welcome to <span className="text-primary">Intuity Sync</span>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
+            <svg className="h-6 w-6 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold text-foreground">
+          Welcome back to ContentFlow
         </h1>
-        <p className="text-gray-600">Turn your content chaos into strategic growth with AI.</p>
+        <p className="text-muted-foreground">Sign in to create amazing content</p>
       </div>
       <Form {...form}>
         <form className="space-y-6" onSubmit={form.handleSubmit(handleSignIn)}>
-            {/* Email Field */}
-            <FormField
+          {/* Email Field */}
+          <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Email</FormLabel>
+              <FormItem>
+                <FormLabel className="text-foreground">Email Address</FormLabel>
                 <FormControl>
-                    <div className="relative">
+                  <div className="relative">
                     <Input
-                        {...field}
-                        placeholder="Email"
-                        className="pr-10"
+                      {...field}
+                      type="email"
+                      placeholder="your@email.com"
+                      className="pl-4 pr-10 bg-background border-input focus:border-accent"
                     />
-                    <MailCheck className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    </div>
+                    <MailCheck className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  </div>
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
+          />
 
-            <FormField
+          {/* Password Field */}
+          <FormField
             control={form.control}
             name="password"
             render={({ field }) => (
-                <FormItem className="w-full">
-                    <FormLabel>Password</FormLabel>
-                    <FormControl className="w-full">
-                        <div className="relative">
-                            <Input {...field} id="password" type={showPassword ? "text" : "password"} placeholder="Password" className="" />
-                            {showPassword ? <EyeOff className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!setShowPassword)} /> : <Eye className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!showPassword)}/>}
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+              <FormItem>
+                <FormLabel className="text-foreground">Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      {...field}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-4 pr-10 bg-background border-input focus:border-accent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
+          />
+
+          {/* Remember & Forgot */}
+          <div className="flex items-center justify-between">
+            <FormField
+              control={form.control}
+              name="rememberMe"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      id="rememberMe"
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                  </FormControl>
+                  <FormLabel htmlFor="rememberMe" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                    Remember me
+                  </FormLabel>
+                </FormItem>
+              )}
             />
+            <Link
+              href="/resetPassword"
+              className="text-sm text-accent hover:text-accent/80 transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
-            <div className="flex items-center justify-between">
-                <FormField
-                control={form.control}
-                name="rememberMe"
-                render={({ field }) => (
-                    <FormItem className="">
-                        <div className="flex items-center gap-2">
-                            <FormControl className="">
-                                <Checkbox
-                                id="terms"
-                                checked={field.value}
-                                onCheckedChange={(checked) => field.onChange(!!checked)}
-                                />
-                            </FormControl>
-                            <FormLabel className="text-sm font-normal text-gray-600" htmlFor="rememberMe">
-                                Remember me
-                            </FormLabel>
-                        </div>
-                        <FormMessage />
-                    </FormItem>
-                )}
-                />
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              "Sign In"
+            )}
+          </Button>
 
-                <Link
-                href="/resetPassword"
-                className="text-sm text-gray-600 hover:text-[#0ea5e9] hover:underline"
-                >
-                Forgot Password?
-                </Link>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign in"
-                  )}
-            </Button>
-          
-            <div className="text-center text-sm text-gray-600">
-                Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-primary hover:underline">
-                    Sign Up
-                </Link>
-            </div>
+          {/* Sign Up Link */}
+          <div className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-accent font-medium hover:text-accent/80 transition-colors">
+              Sign up
+            </Link>
+          </div>
         </form>
       </Form>
     </div>
