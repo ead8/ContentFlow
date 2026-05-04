@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
-import Image from "next/image"
-import { Plus } from "lucide-react"
+import { Plus, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -11,83 +10,72 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   return (
-    <div className={cn("hidden h-screen w-64 bg-[#0e0529] md:sticky md:top-0 md:block py-2", className)}>
+    <div className={cn("hidden h-screen w-64 bg-card border-r border-border md:sticky md:top-0 md:flex md:flex-col py-6", className)}>
       {/* Logo */}
-      <div className="flex h-16 items-center flex items-center justify-center">
-        <Link href="/" className="flex items-center relative">
-          <Image src="/images/logo/intuitySync_logo.svg" alt="Intuity Sync" width={32} height={32} className="h-28 w-28" />
+      <div className="flex h-16 items-center px-6 mb-8">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-accent-foreground" />
+          </div>
+          <span className="font-bold text-lg text-foreground">ContentFlow</span>
         </Link>
-      </div>      {/* Create Post Button */}
-      <div className="px-4 py-2">
-        <Link href={'/generate'}>          <Button
-            variant="outline"
-            className="w-full justify-center bg-gradient-to-r from-[#13032C] to-[#13042E]  text-white border-[0.5px] border-dashed border-[#339DFF] shadow-[0_4px_20px_-0px_#3758F999] hover:opacity-90"
-          >
-            <div className="mr-2 h-4 w-4 rounded-full border border-white flex items-center justify-center">
-              <Plus className="h-23w-2" />
-            </div>
+      </div>
+
+      {/* Create Post Button */}
+      <div className="px-4 mb-6">
+        <Link href={'/generate'}>
+          <Button className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10">
+            <Plus className="h-4 w-4" />
             Create Post
           </Button>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="mt-6 px-4">
-        <ul className="space-y-2">
-          <li>
-            <Link href="/dashboard" className="flex items-center rounded-md px-4 py-2 text-white hover:bg-[#2a2162]">
-              <Image
-                src="/images/icons/house-alt.svg"
-                alt="Dashboard"
-                width={20}
-                height={20}
-                className="mr-3 h-5 w-5"
-              />
-              Dashboard
-            </Link>
-          </li>
-          <li>
-            <Link href="/posts" className="flex items-center rounded-md px-4 py-2 text-white hover:bg-[#2a2162]">
-              <Image src="/images/icons/add-anchor-point.svg" alt="My Posts" width={20} height={20} className="mr-3 h-5 w-5" />
-              My Posts
-            </Link>
-          </li>
-          <li>
-            <Link href="/calendar" className="flex items-center rounded-md px-4 py-2 text-white hover:bg-[#2a2162]">
-              <Image src="/images/icons/calender-alt.svg" alt="Calendar" width={20} height={20} className="mr-3 h-5 w-5" />
-              Calendar
-            </Link>
-          </li>
-          <li>
-            <Link href="/analytics" className="flex items-center rounded-md px-4 py-2 text-white hover:bg-[#2a2162]">
-              <Image
-                src="/images/icons/graph-alt.svg"
-                alt="Analytics"
-                width={20}
-                height={20}
-                className="mr-3 h-5 w-5"
-              />
-              Analytics
-            </Link>
-          </li>
-          <li>
-            <Link href="/settings" className="flex items-center rounded-md px-4 py-2 text-white hover:bg-[#2a2162]">
-              <Image src="/images/icons/time-settings.svg" alt="Settings" width={20} height={20} className="mr-3 h-5 w-5" />
-              Settings
-            </Link>
-          </li>
+      <nav className="flex-1 px-3">
+        <ul className="space-y-1">
+          <NavItem 
+            href="/dashboard" 
+            icon={<LayoutDashboard className="h-4 w-4" />} 
+            label="Dashboard" 
+          />
+          <NavItem 
+            href="/posts" 
+            icon={<FileText className="h-4 w-4" />} 
+            label="My Posts" 
+          />
+          <NavItem 
+            href="/calendar" 
+            icon={<Calendar className="h-4 w-4" />} 
+            label="Calendar" 
+          />
+          <NavItem 
+            href="/analytics" 
+            icon={<BarChart3 className="h-4 w-4" />} 
+            label="Analytics" 
+          />
         </ul>
       </nav>
 
-      {/* Circuit Background at Bottom */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-[-1] h-[200px] opacity-25"
-        style={{
-          backgroundImage: `url('/images/background/sidebar_background.svg')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center bottom",
-        }}
-      />
+      {/* Settings at Bottom */}
+      <div className="px-3 pt-6 border-t border-border">
+        <NavItem 
+          href="/settings" 
+          icon={<Settings className="h-4 w-4" />} 
+          label="Settings" 
+        />
+      </div>
     </div>
+  )
+}
+
+function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
+  return (
+    <li>
+      <Link href={href} className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent/10 hover:text-accent transition-colors">
+        {icon}
+        {label}
+      </Link>
+    </li>
   )
 }

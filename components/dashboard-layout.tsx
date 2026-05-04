@@ -6,7 +6,7 @@ import { Header } from "./shell/header"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-white dark:bg-gray-950">
+    <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
       <Sidebar />
 
@@ -16,7 +16,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <Header isSidebarOpen={false} onToggleSidebar={() => {}} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-auto bg-background/50 p-4 md:p-6">{children}</main>
       </div>
     </div>
   )
