@@ -29,74 +29,85 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
   
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-4 dark:bg-gray-950 dark:border-gray-800 md:px-6">
-      <div className="flex items-center">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 md:px-6">
+      <div className="flex items-center gap-4 flex-1">
         {/* Mobile hamburger with Sheet */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="mr-4 md:hidden">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
           <MobileSidebar />
         </Sheet>
 
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+        <div className="relative w-full max-w-md hidden sm:block">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search"
-            className="w-full bg-gray-100 pl-8 focus-visible:ring-0 dark:bg-gray-800"
+            placeholder="Search posts, analytics..."
+            className="w-full bg-muted pl-9 h-9 rounded-lg border-0 focus-visible:ring-1 focus-visible:ring-accent"
           />
         </div>
-      </div>      <div className="flex items-center space-x-4">
+      </div>
+
+      <div className="flex items-center gap-3">
         <CreditsBadge />
-        <Button className="bg-blue-500 hover:bg-blue-600">Upgrade</Button>
+        <Button size="sm" className="hidden sm:flex gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+          Upgrade
+        </Button>
+        
         <div className="relative">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500"></span>
+          <Button variant="ghost" size="icon" className="relative h-9 w-9">
+            <Bell className="h-4 w-4" />
+            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-destructive"></span>
           </Button>
         </div>
 
-        {/* User dropdown menu */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <ModeToggle />
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback>{user?.email.charAt(1).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="flex items-center justify-start gap-2 p-2">
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{user?.email}</p>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="flex items-center justify-start gap-3 p-3 border-b border-border">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col space-y-1 leading-tight">
+                  <p className="font-medium text-sm text-foreground">{user?.email}</p>
                   <p className="text-xs text-muted-foreground capitalize">{user?.role} plan</p>
                 </div>
               </div>
-              <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer w-full">
-                  <User className="mr-2 h-4 w-4" />
+                <Link href="/profile" className="cursor-pointer flex items-center gap-2">
+                  <User className="h-4 w-4" />
                   Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/settings" className="cursor-pointer w-full">
-                  <Settings className="mr-2 h-4 w-4" />
+                <Link href="/settings" className="cursor-pointer flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
                   Settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="cursor-pointer text-destructive focus:text-destructive"
+                className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
                 onClick={() => signOut()}
               >
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="h-4 w-4" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
