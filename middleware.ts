@@ -10,6 +10,8 @@ const PROTECTED_PREFIXES = [
   '/posts',
   '/analytics',
   '/settings',
+  '/calendar',
+  '/profile',
 ]
 
 // Routes that only make sense when logged out
