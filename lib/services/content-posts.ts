@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireUserId } from './auth'
 
 export interface ContentPost {
   id: string
@@ -99,11 +100,13 @@ export async function updatePost(
   updates: Partial<ContentPost>
 ): Promise<ContentPost> {
   const supabase = await createClient()
+  const userId = await requireUserId()
 
   const { data, error } = await supabase
     .from('content_posts')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', postId)
+    .eq('user_id', userId)
     .select()
     .single()
 
@@ -119,12 +122,41 @@ export async function publishPost(
   targetAccountIds: string[]
 ): Promise<void> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('User not authenticated')
+
+  if (!targetAccountIds.length) {
+    throw new Error('At least one target account is required')
+  }
+
+  // Verify the post belongs to the user
+  const { data: post, error: postError } = await supabase
+    .from('content_posts')
+    .select('id')
+    .eq('id', postId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (postError || !post) throw new Error('Post not found')
+
+  // Resolve each target account to its platform (and verify ownership)
+  const { data: accounts, error: accountsError } = await supabase
+    .from('social_accounts')
+    .select('id, platform')
+    .eq('user_id', user.id)
+    .in('id', targetAccountIds)
+
+  if (accountsError) throw accountsError
+  if (!accounts || accounts.length !== targetAccountIds.length) {
+    throw new Error('One or more target accounts were not found')
+  }
 
   // Create post targets for each account
-  const postTargets = targetAccountIds.map(accountId => ({
+  const postTargets = accounts.map(account => ({
     post_id: postId,
-    social_account_id: accountId,
-    platform: '', // Will be set based on account
+    social_account_id: account.id,
+    platform: account.platform,
     status: 'pending',
   }))
 
@@ -146,11 +178,13 @@ export async function publishPost(
  */
 export async function deletePost(postId: string): Promise<void> {
   const supabase = await createClient()
+  const userId = await requireUserId()
 
   const { error } = await supabase
     .from('content_posts')
     .delete()
     .eq('id', postId)
+    .eq('user_id', userId)
 
   if (error) throw error
 }

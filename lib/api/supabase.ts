@@ -74,23 +74,22 @@ export async function fetchCreditUsage(): Promise<CreditUsage> {
 
 
 export async function fetchPostList(): Promise<Post[]> {
-  const supabase = createClient()
+  const res = await fetch('/api/posts?limit=100')
+  const body = await res.json().catch(() => null)
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-  const session = sessionData.session
-
-  if (sessionError || !session || !session.user) {
-    throw new Error("User is not authenticated")
+  if (!res.ok || body?.success === false) {
+    throw new Error(body?.error || `Failed to load posts (${res.status})`)
   }
 
-  const { data, error } = await supabase
-  .from('posts')
-  .select('*')
-  .eq('user_id', session.user.id)
-
-  if(error) {
-    throw new Error(error.message)
-  }
-
-  return data || []
+  // The posts API returns content_posts rows; map them onto the legacy
+  // Post shape used by older components.
+  return (body.data || []).map((p: any) => ({
+    id: p.id,
+    user_id: p.user_id,
+    topic: p.title || p.content?.slice(0, 60) || 'Untitled',
+    platform_variants: {},
+    status: p.status,
+    created_at: p.created_at,
+    schedule_at: p.scheduled_for || p.created_at,
+  }))
 }

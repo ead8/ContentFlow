@@ -2,54 +2,41 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// Routes that require an authenticated session
+const PROTECTED_PREFIXES = [
+  '/dashboard',
+  '/generate',
+  '/media',
+  '/posts',
+  '/analytics',
+  '/settings',
+]
+
+// Routes that only make sense when logged out
+const AUTH_PAGES = ['/login', '/signup']
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
   const { data: { session } } = await supabase.auth.getSession()
+  const { pathname } = req.nextUrl
 
-  // Check if the user is authenticated
-  if (!session && (
-    req.nextUrl.pathname.startsWith('/dashboard') ||
-    req.nextUrl.pathname.startsWith('/generate') ||
-    req.nextUrl.pathname.startsWith('/media') ||
-    req.nextUrl.pathname.startsWith('/posts') ||
-    req.nextUrl.pathname.startsWith('/analytics') ||
-    req.nextUrl.pathname.startsWith('/settings')
-  )) {
-    // Redirect to login if accessing protected routes without authentication
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
+
+  // Unauthenticated users get sent to login when hitting protected routes
+  if (!session && isProtected) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set('redirect', req.nextUrl.pathname)
+    redirectUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // For authenticated users, check role-based access
-  if (session) {
-    // Get user profile to check role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-
-    // If user role is not admin, restrict access to dashboard tools
-    if (profile?.role !== 'admin' && (
-      req.nextUrl.pathname.startsWith('/dashboard')
-    )) {
-      // Redirect to generate or show access denied
-      const redirectUrl = req.nextUrl.clone()
-      redirectUrl.pathname = '/generate'
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    // Redirect authenticated users away from auth pages
-    if (req.nextUrl.pathname === '/login' ||
-        req.nextUrl.pathname === '/signup' ||
-        req.nextUrl.pathname === '/') {
-      const redirectUrl = req.nextUrl.clone()
-      redirectUrl.pathname = '/dashboard'
-      return NextResponse.redirect(redirectUrl)
-    }
+  // Authenticated users are sent away from auth pages (and the landing
+  // page) to the dashboard
+  if (session && (AUTH_PAGES.includes(pathname) || pathname === '/')) {
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/dashboard'
+    return NextResponse.redirect(redirectUrl)
   }
 
   return res

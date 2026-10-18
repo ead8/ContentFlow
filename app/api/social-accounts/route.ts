@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserSocialAccounts, addSocialAccount, disconnectSocialAccount } from '@/lib/services/social-accounts'
+import { apiError } from '@/lib/api/error'
 
 export async function GET(request: NextRequest) {
   try {
     const accounts = await getUserSocialAccounts()
     return NextResponse.json({ success: true, data: accounts })
-  } catch (error: any) {
-    console.error('[v0] Error fetching social accounts:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error fetching social accounts')
   }
 }
 
@@ -35,12 +32,8 @@ export async function POST(request: NextRequest) {
     )
 
     return NextResponse.json({ success: true, data: account }, { status: 201 })
-  } catch (error: any) {
-    console.error('[v0] Error adding social account:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error adding social account')
   }
 }
 
@@ -58,11 +51,7 @@ export async function DELETE(request: NextRequest) {
 
     await disconnectSocialAccount(accountId)
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('[v0] Error disconnecting account:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error disconnecting account')
   }
 }

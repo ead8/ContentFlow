@@ -7,7 +7,13 @@ import { ArrowUpRight, ArrowDownRight, TrendingUp } from "lucide-react"
 import { fetchDashboardStats } from "@/lib/n8n/client"
 
 export function QuickStatsSnapshot() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<{
+    totalPosts: number;
+    engagementRate: number;
+    avgReach: number;
+    videoViews: number;
+    weeklyData: { name: string; value: number }[];
+  }>({
     totalPosts: 0,
     engagementRate: 0,
     avgReach: 0,

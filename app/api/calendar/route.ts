@@ -7,6 +7,7 @@ import {
   deleteScheduledEvent,
   getOptimalPostingTimes,
 } from '@/lib/services/scheduling'
+import { apiError } from '@/lib/api/error'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,12 +33,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-  } catch (error: any) {
-    console.error('[v0] Error fetching calendar events:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error fetching calendar events')
   }
 }
 
@@ -61,12 +58,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ success: true, data: event }, { status: 201 })
-  } catch (error: any) {
-    console.error('[v0] Error creating scheduled event:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error creating scheduled event')
   }
 }
 
@@ -84,12 +77,8 @@ export async function PUT(request: NextRequest) {
 
     const event = await updateScheduledEvent(eventId, updates)
     return NextResponse.json({ success: true, data: event })
-  } catch (error: any) {
-    console.error('[v0] Error updating scheduled event:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error updating scheduled event')
   }
 }
 
@@ -107,11 +96,7 @@ export async function DELETE(request: NextRequest) {
 
     await deleteScheduledEvent(eventId)
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('[v0] Error deleting scheduled event:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error deleting scheduled event')
   }
 }

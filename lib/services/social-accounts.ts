@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireUserId } from './auth'
 
 export interface SocialAccount {
   id: string
@@ -68,10 +69,12 @@ export async function getUserSocialAccounts(): Promise<SocialAccount[]> {
  */
 export async function disconnectSocialAccount(accountId: string) {
   const supabase = await createClient()
+  const userId = await requireUserId()
   const { error } = await supabase
     .from('social_accounts')
     .update({ is_connected: false })
     .eq('id', accountId)
+    .eq('user_id', userId)
 
   if (error) throw error
 }
@@ -81,10 +84,12 @@ export async function disconnectSocialAccount(accountId: string) {
  */
 export async function updateAccountSyncTime(accountId: string) {
   const supabase = await createClient()
+  const userId = await requireUserId()
   const { error } = await supabase
     .from('social_accounts')
     .update({ last_synced: new Date().toISOString() })
     .eq('id', accountId)
+    .eq('user_id', userId)
 
   if (error) throw error
 }

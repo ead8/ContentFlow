@@ -1,438 +1,180 @@
-import { ImageUploadStep, WizardFormData } from '@/components/generate/MultiStep';
-import { createClient } from '@/lib/supabase/client';
+import { WizardFormData } from '@/components/generate/MultiStep';
 import { AddFeedbackRequest, ContentGenerationRequest, ContentGenerationResponse, MediaGenerationRequest, MediaGenerationResult } from '@/models/content';
 
-const N8N_API_URL = process.env.NEXT_PUBLIC_N8N_API_URL;
-const N8N_API_KEY = process.env.NEXT_PUBLIC_N8N_API_KEY;
+/**
+ * Client for app features (dashboard data, AI generation, posts, feedback).
+ *
+ * These functions talk to the app's own API routes, which are backed by
+ * Supabase and OpenAI. The historical name of this module references n8n,
+ * which is no longer required.
+ */
 
-if (!N8N_API_URL || !N8N_API_KEY) {
-  throw new Error('N8N environment variables are required');
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+  });
+
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    // non-JSON response
+  }
+
+  if (!res.ok || body?.success === false) {
+    throw new Error(body?.error || `Request failed (${res.status})`);
+  }
+
+  return body.data as T;
 }
 
 export async function fetchDashboardStats() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  const response = await fetch(`${N8N_API_URL}/api/v1/dashboard/stats`, {
-    headers: {
-      'X-N8N-API-KEY': N8N_API_KEY ?? '',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch dashboard stats');
-  }
-
-  return response.json();
+  return api<{
+    totalPosts: number;
+    engagementRate: number;
+    avgReach: number;
+    videoViews: number;
+    weeklyData: { name: string; value: number }[];
+  }>('/api/dashboard/stats');
 }
 
-export async function fetchPostPerformance() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+export interface DashboardPostEngagement {
+  likes: number;
+  comments: number;
+  reach: number;
+}
 
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
+export interface DashboardPost {
+  id: string;
+  thumbnail: string;
+  title: string;
+  status: 'posted' | 'scheduled' | 'draft';
+  platform: string;
+  date: string;
+  engagement?: DashboardPostEngagement;
+}
 
-  const response = await fetch(`${N8N_API_URL}/api/v1/posts/performance`, {
-    headers: {
-      'X-N8N-API-KEY': N8N_API_KEY ?? '',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch post performance');
-  }
-
-  return response.json();
+export async function fetchPostPerformance(): Promise<DashboardPost[]> {
+  return api<DashboardPost[]>('/api/dashboard/performance');
 }
 
 export async function fetchCreditUsage() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  const response = await fetch(`${N8N_API_URL}/api/v1/credits/usage`, {
-    headers: {
-      'X-N8N-API-KEY': N8N_API_KEY ?? '',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch credit usage');
-  }
-
-  return response.json();
+  return api<{
+    image_credits_used: number;
+    video_credits_used: number;
+    total_image_credits: number;
+    total_video_credits: number;
+  }>('/api/dashboard/credits');
 }
 
-export async function fetchAccountSummary() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+export interface AccountPlatform {
+  name: string;
+  status: 'connected' | 'disconnected';
+  profile?: string;
+  lastSync?: string;
+}
 
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
+export interface AccountSummaryData {
+  platforms: AccountPlatform[];
+  teamMembers: { id: string; name: string; initials: string; role: string }[];
+  subscription: { upgradeAvailable?: boolean };
+}
 
-  const response = await fetch(`${N8N_API_URL}/api/v1/account/summary`, {
-    headers: {
-      'X-N8N-API-KEY': N8N_API_KEY ?? '',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch account summary');
-  }
-
-  return response.json();
+export async function fetchAccountSummary(): Promise<AccountSummaryData> {
+  return api<AccountSummaryData>('/api/dashboard/account');
 }
 
 export async function generateContent(data: ContentGenerationRequest): Promise<ContentGenerationResponse> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // Check if the session exists (user is authenticated)
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_CONTENT_GENERATION_WEBHOOK_URL;
-
-  if (!n8nWebhookUrl) {
-    throw new Error("N8N webhook URL is not defined in environment variables.");
-  }
-
-
-  const response = await fetch(n8nWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({...data, user_id: session.user.id}), // Send the form data to n8n
+  const result = await api<ContentGenerationResponse>('/api/ai/generate', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error("N8N Webhook Error:", errorData);
-    throw new Error(`N8N webhook failed with status ${response.status}: ${errorData.message || "Unknown error"}`);
+  if (!result.name || !result.description || !result.platform_posts) {
+    throw new Error('AI generation returned an incomplete response.');
   }
 
-  const responseBody = await response.json(); // Parse the response from n8n
-
-  const generated_content: ContentGenerationResponse = responseBody[0]?.output;
-
-
-  // Ensure the generated content follows the expected format
-  if (!generated_content.name || !generated_content.description || !generated_content.platform_posts) {
-    throw new Error("N8N webhook response is missing required fields.");
-  }
-
-  return generated_content; // Return the properly typed response
+  return result;
 }
 
-export async function generateImage(data: ImageUploadStep): Promise<string> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  // Check if the session exists (user is authenticated)
-  if (!session) {
-    throw new Error("Not authenticated");
+export async function generateImage(data: { prompt?: string }): Promise<string> {
+  const prompt = data.prompt?.trim();
+  if (!prompt) {
+    throw new Error('An image prompt is required.');
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_IMAGE_GENERATION_WEBHOOK_URL;
-  if (!n8nWebhookUrl) {
-    throw new Error("N8N webhook URL is not defined in environment variables.");
-  }
-
-  const response = await fetch(n8nWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({...data, user_id: session.user.id}), // Send the form data to n8n
+  const result = await api<{ image_url: string }>('/api/ai/image', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
   });
 
-  if (!response.ok) {
-    let errorMessage = "Unknown error";
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
-    } catch (err) {
-      console.error("Failed to parse error response:", err);
-    }
-    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+  if (!result.image_url) {
+    throw new Error('No image URL returned.');
   }
 
-  // Parse response and return the image URL
-  const responseBody = await response.json();
-  // const responseJson = JSON.parse(responseBody)
-  if (!responseBody.image_url) {
-    throw new Error("No image URL returned from N8N.");
-  }
-
-  return responseBody.image_url; // Return the image URL
+  return result.image_url;
 }
 
-export async function generateMedia(request: MediaGenerationRequest): Promise<MediaGenerationResult> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error("You must be logged in to generate media.");
-  }
-
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_MEDIA_GENERATION_WEBHOOK_URL;
-  if (!n8nWebhookUrl) {
-    throw new Error("Missing N8N webhook URL in environment variables.");
-  }
-
-  const response = await fetch(n8nWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({...request, user_id: session.user.id, user_email: session.user.email}), // Send the form data to n8n
-  });
-
-  if (!response.ok) {
-    let errorMessage = "Unknown error";
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
-    } catch (err) {
-      console.error("Failed to parse error response:", err);
-    }
-    throw new Error(`Media generation failed: ${errorMessage}`);
-  }
-
-  const responseBody = await response.json();
-
-  if (!responseBody?.success || !responseBody?.data) {
-    throw new Error("Invalid response from media generation server.");
-  }
-
-
-  return {
-    mediaId: responseBody.data.media_id,
-    jobId: responseBody.data.job_id
-  };
+export async function generateMedia(_request: MediaGenerationRequest): Promise<MediaGenerationResult> {
+  throw new Error(
+    'Video generation is not configured. Connect Tavus/Shotstack or n8n to enable it.'
+  );
 }
 
 export async function createPost(data: WizardFormData): Promise<string> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const step1 = data.step_1;
+  const firstPlatform = data.platform?.[0];
+  const firstPost = (firstPlatform && step1?.platform_posts?.[firstPlatform]) || undefined;
 
-  // Check if the session exists (user is authenticated)
-  if (!session) {
-    throw new Error("Not authenticated");
-  }
+  const mediaUrls: string[] = [];
+  if (data.step_2?.image_upload) mediaUrls.push(data.step_2.image_upload);
+  if (data.step_3?.video_url) mediaUrls.push(data.step_3.video_url);
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_CREATE_POST_WEBHOOK_URL;
-  if (!n8nWebhookUrl) {
-    throw new Error("N8N webhook URL is not defined in environment variables.");
-  }
-
-  const {
-    user_id,
-    topic,
-    tone,
-    platform,
-    step_1,
-    step_2,
-    step_3,
-    step_5,
-  } = data;
-
-  const imageUrl = step_2?.image_upload
-  const videoUrl = step_3?.video_url
-  const scheduleAt = step_5?.schedule_at
-
-  const platform_variants: Record<string, any> = {};
-
-  platform?.forEach((p) => {
-    const platformPost = step_1?.platform_posts?.[p] ?? {};
-
-    platform_variants[p] = {
-      image: imageUrl,
-      video: videoUrl,
-      video_prompt: step_3?.video_prompt,
-      image_prompt: step_2?.prompt,
-      source: step_2?.image_source,
-      post: platformPost.post,
-      text: platformPost.post,
-      caption: platformPost.caption,
-      hashtags: (platformPost.hashtags || []).join(" "),
-      call_to_action: platformPost.call_to_action,
-    };
+  const post = await api<{ id: string }>('/api/posts', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: step1?.name,
+      content: firstPost?.post || firstPost?.caption || step1?.description || data.topic || 'Untitled post',
+      media_urls: mediaUrls.length ? mediaUrls : undefined,
+      tone: data.tone,
+      scheduled_for: data.step_5?.schedule_at,
+      generated_by_ai: true,
+      credits_used: 10,
+    }),
   });
 
-  const response = await fetch(n8nWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id,
-      topic,
-      tone,
-      platform_variants,
-      schedule_at: scheduleAt,
-      status: "Draft"
-    })
-  })
-
-  if (!response.ok) {
-    let errorMessage = "Unknown error";
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
-    } catch (err) {
-      console.error("Failed to parse error response:", err);
-    }
-    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
+  if (!post?.id) {
+    throw new Error('Post was created but no ID was returned.');
   }
 
-  // Parse response and return the image URL
-  const responseBody = await response.json();
- 
-  if (!responseBody.success || !responseBody.data) {
-    throw new Error("No Id returned from N8N.");
-  }
-
-  return responseBody.data.id; // Return the image URL
+  return post.id;
 }
 
 export async function addFeedback(data: AddFeedbackRequest): Promise<string> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const result = await api<{ id: string }>('/api/feedback', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
-  // Check if the session exists (user is authenticated)
-  if (!session) {
-    throw new Error("Not authenticated");
+  if (!result?.id) {
+    throw new Error('Feedback was not saved.');
   }
 
-  const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_ADD_FEEDBACK_WEBHOOK_URL;
-  if (!n8nWebhookUrl) {
-    throw new Error("N8N webhook URL is not defined in environment variables.");
-  }
-
-  const {
-    rating,
-    feedback,
-    source
-  } = data;
-
-
-
-  const response = await fetch(n8nWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id: session.user.id,
-      rating: rating,
-      feedback_text: feedback,
-      source: source,
-      date: new Date()
-    })
-  })
-
-  if (!response.ok) {
-    let errorMessage = "Unknown error";
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-      console.error("N8N Webhook Error:", errorData);
-    } catch (err) {
-      console.error("Failed to parse error response:", err);
-    }
-    throw new Error(`N8N webhook failed with status ${response.status}: ${errorMessage}`);
-  }
-
-  // Parse response and return the image URL
-  const responseBody = await response.json();
- 
-  if (!responseBody.id) {
-    throw new Error("No Id returned from N8N.");
-  }
-
-  return responseBody.id; // Return the image URL
+  return result.id;
 }
 
 export async function pollVideoStatus(
-  jobId: string,
-  mediaId: string,
-  {
-    maxAttempts = 40,
-    initialInterval = 3000, // 3 seconds
-    slowInterval = 7000,   // 7 seconds after 1 minute
-    switchAfterMs = 60000,  // 1 minute
-  } = {}
-): Promise<string> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const STATUS_WEBHOOK = process.env.NEXT_PUBLIC_N8N_VIDEO_STATUS_WEBHOOK_URL!;
-  let attempt = 0;
-  const startTime = Date.now();
-
-  while (attempt < maxAttempts) {
-    try {
-      const res = await fetch(STATUS_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: jobId, media_id: mediaId, user_id: session?.user.id }),
-      });
-
-      if (!res.ok) {
-        console.error("Status check failed:", res.status, res.statusText);
-        throw new Error("We couldn't check the video right now. Please try again.");
-      }
-
-      const json = await res.json();
-
-      if (json.status === "succeed" && json.video_url) {
-        return json.video_url;
-      }
-
-      if (json.status === "failed") {
-        throw new Error("Video generation failed. Please try again.");
-      }
-
-      const now = Date.now();
-      const waitTime = now - startTime < switchAfterMs ? initialInterval : slowInterval;
-
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-      attempt++;
-    } catch (err: any) {
-      console.error("Polling error:", err);
-      throw new Error("Something went wrong. Please try again later.");
-    }
+  _jobId: string,
+  _mediaId: string,
+  _options?: {
+    maxAttempts?: number;
+    initialInterval?: number;
+    slowInterval?: number;
+    switchAfterMs?: number;
   }
-
-  throw new Error("Video is taking longer than expected. Please try again in a few minutes.");
+): Promise<string> {
+  throw new Error(
+    'Video generation is not configured. Connect Tavus/Shotstack or n8n to enable it.'
+  );
 }

@@ -5,6 +5,7 @@ import {
   getEngagementSummary,
   getPostAnalytics,
 } from '@/lib/services/analytics'
+import { apiError } from '@/lib/api/error'
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,12 +31,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-  } catch (error: any) {
-    console.error('[v0] Error fetching analytics:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error fetching analytics')
   }
 }
 
@@ -53,11 +50,7 @@ export async function POST(request: NextRequest) {
 
     await recordPlatformAnalytics(accountId, platform, metrics)
     return NextResponse.json({ success: true }, { status: 201 })
-  } catch (error: any) {
-    console.error('[v0] Error recording analytics:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error recording analytics')
   }
 }

@@ -3,19 +3,12 @@
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import {
-  Eye,
   Filter,
-  Linkedin,
-  Instagram,
-  Youtube,
-  Twitter,
   MoreHorizontal,
   Search,
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Facebook,
-  X,
 } from "lucide-react"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -24,138 +17,75 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
-import { Post } from "@/models/content"
-import { fetchPostList } from "@/lib/api/supabase"
+import { useToast } from "@/hooks/use-toast"
+import type { ContentPost } from "@/lib/services/content-posts"
 
-// Sample data for demonstration - expanded for pagination
-// const samplePosts: Post[] = [
-//   {
-//     id: 15,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Write about AI in Health Care",
-//     platform: ["linkedin", "instagram", "youtube", "twitter"],
-//     status: "draft",
-//     created_at: "2025-05-14T11:23:50.821385+00:00",
-//     schedule_at: "2025-05-14T11:23:50.821385+00:00",
-//   },
-//   {
-//     id: 16,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "The Future of Remote Work",
-//     platform: ["linkedin", "twitter"],
-//     status: "published",
-//     created_at: "2025-05-13T09:15:30.821385+00:00",
-//     schedule_at: "2025-05-13T09:15:30.821385+00:00",
-//   },
-//   {
-//     id: 17,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Sustainable Technology Practices",
-//     platform: ["linkedin", "instagram"],
-//     status: "scheduled",
-//     created_at: "2025-05-12T14:45:20.821385+00:00",
-//     schedule_at: "2025-05-12T14:45:20.821385+00:00",
-//   },
-//   {
-//     id: 18,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Blockchain in Supply Chain Management",
-//     platform: ["linkedin", "youtube"],
-//     status: "draft",
-//     created_at: "2025-05-11T16:30:10.821385+00:00",
-//     schedule_at: "2025-05-11T16:30:10.821385+00:00",
-//   },
-//   {
-//     id: 19,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Cybersecurity Best Practices for Small Businesses",
-//     platform: ["linkedin", "twitter", "instagram"],
-//     status: "published",
-//     created_at: "2025-05-10T10:20:45.821385+00:00",
-//     schedule_at: "2025-05-10T10:20:45.821385+00:00",
-//   },
-//   {
-//     id: 20,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Machine Learning for Beginners",
-//     platform: ["linkedin", "youtube"],
-//     status: "draft",
-//     created_at: "2025-05-09T08:15:30.821385+00:00",
-//     schedule_at: "2025-05-09T08:15:30.821385+00:00",
-//   },
-//   {
-//     id: 21,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Digital Marketing Trends 2025",
-//     platform: ["instagram", "twitter"],
-//     status: "scheduled",
-//     created_at: "2025-05-08T13:40:20.821385+00:00",
-//     schedule_at: "2025-05-08T13:40:20.821385+00:00",
-//   },
-//   {
-//     id: 22,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "NFTs and the Future of Digital Ownership",
-//     platform: ["linkedin", "twitter", "youtube"],
-//     status: "published",
-//     created_at: "2025-05-07T15:25:10.821385+00:00",
-//     schedule_at: "2025-05-07T15:25:10.821385+00:00",
-//   },
-//   {
-//     id: 23,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Building a Personal Brand Online",
-//     platform: ["linkedin", "instagram"],
-//     status: "draft",
-//     created_at: "2025-05-06T09:10:45.821385+00:00",
-//     schedule_at: "2025-05-06T09:10:45.821385+00:00",
-//   },
-//   {
-//     id: 24,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "The Ethics of Artificial Intelligence",
-//     platform: ["linkedin", "twitter", "youtube"],
-//     status: "scheduled",
-//     created_at: "2025-05-05T11:35:30.821385+00:00",
-//     schedule_at: "2025-05-05T11:35:30.821385+00:00",
-//   },
-//   {
-//     id: 25,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Cloud Computing for Small Businesses",
-//     platform: ["linkedin"],
-//     status: "published",
-//     created_at: "2025-05-04T14:50:20.821385+00:00",
-//     schedule_at: "2025-05-04T14:50:20.821385+00:00",
-//   },
-//   {
-//     id: 26,
-//     user_id: "f06be5f6-d7e9-437d-8b1e-cbdcd7293975",
-//     topic: "Social Media Strategy for Startups",
-//     platform: ["instagram", "twitter"],
-//     status: "draft",
-//     created_at: "2025-05-03T16:15:10.821385+00:00",
-//     schedule_at: "2025-05-03T16:15:10.821385+00:00",
-//   },
-// ]
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, init)
+  const body = await res.json().catch(() => null)
+  if (!res.ok || body?.success === false) {
+    throw new Error(body?.error || `Request failed (${res.status})`)
+  }
+  return body.data as T
+}
 
 const PostsTable = () => {
-  const router = useRouter()  
-  const [posts, setPosts] = useState<Post[]>([])
-
+  const router = useRouter()
+  const { toast } = useToast()
+  const [posts, setPosts] = useState<ContentPost[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [isDataLoading, setIsDataLoading] = useState<boolean>(false)
+  const [isDataLoading, setIsDataLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
 
+  const loadPostData = async () => {
+    try {
+      setIsDataLoading(true)
+      setLoadError(null)
+      const postList = await api<ContentPost[]>("/api/posts?limit=100")
+      setPosts(postList)
+    } catch (error: any) {
+      setLoadError(error.message || "Failed to load posts.")
+    } finally {
+      setIsDataLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPostData()
+  }, [])
+
+  const handleDelete = async (post: ContentPost) => {
+    const label = post.title || post.content.slice(0, 40)
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return
+
+    try {
+      setDeletingId(post.id)
+      await api(`/api/posts?postId=${encodeURIComponent(post.id)}`, { method: "DELETE" })
+      setPosts((prev) => prev.filter((p) => p.id !== post.id))
+      toast({ title: "Post deleted" })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: error.message || "Could not delete the post.",
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   // Filter posts based on search query and status filter
   const filteredPosts = posts.filter((post) => {
-    const matchesSearch = post.topic.toLowerCase().includes(searchQuery.toLowerCase())
+    const haystack = `${post.title || ""} ${post.content}`.toLowerCase()
+    const matchesSearch = haystack.includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === "all" || post.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -169,38 +99,13 @@ const PostsTable = () => {
 
   // Pagination handlers
   const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+    setCurrentPage(Math.max(1, Math.min(page, Math.max(totalPages, 1))))
   }
+  const goToPreviousPage = () => goToPage(currentPage - 1)
+  const goToNextPage = () => goToPage(currentPage + 1)
 
-  const goToPreviousPage = () => {
-    goToPage(currentPage - 1)
-  }
-
-  const goToNextPage = () => {
-    goToPage(currentPage + 1)
-  }
-
-  const handleViewDetail = (postId: number) => {
-    // Navigate to detail page or open modal
+  const handleViewDetail = (postId: string) => {
     router.push(`/posts/${postId}`)
-  }
-
-  // Platform icon mapping
-  const PlatformIcon = ({ platform }: { platform: string }) => {
-    switch (platform) {
-      case "Linkedin":
-        return <Linkedin className="h-4 w-4 text-blue-600" />
-      case "Instagram":
-        return <Instagram className="h-4 w-4 text-pink-600" />
-      case "YouTube":
-        return <Youtube className="h-4 w-4 text-red-600" />
-      case "X-Titter":
-        return <Twitter className="h-4 w-4 text-sky-500" />
-      case "Facebook":
-        return <Facebook className="h-4 w-4 text-blue-700" />
-      default:
-        return null
-    }
   }
 
   // Status badge styling
@@ -225,7 +130,7 @@ const PostsTable = () => {
           </Badge>
         )
       default:
-        return null
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
@@ -235,71 +140,24 @@ const PostsTable = () => {
     const maxVisiblePages = 5
 
     if (totalPages <= maxVisiblePages) {
-      // Show all pages if total pages is less than max visible
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(i)
       }
     } else {
-      // Always show first page
-      pageNumbers.push(1)
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
 
-      // Calculate start and end of visible page range
-      let startPage = Math.max(2, currentPage - 1)
-      let endPage = Math.min(totalPages - 1, currentPage + 1)
-
-      // Adjust if we're near the beginning
-      if (currentPage <= 3) {
-        endPage = Math.min(totalPages - 1, 4)
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1)
       }
 
-      // Adjust if we're near the end
-      if (currentPage >= totalPages - 2) {
-        startPage = Math.max(2, totalPages - 3)
-      }
-
-      // Add ellipsis after first page if needed
-      if (startPage > 2) {
-        pageNumbers.push("ellipsis-start")
-      }
-
-      // Add visible page numbers
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i)
-      }
-
-      // Add ellipsis before last page if needed
-      if (endPage < totalPages - 1) {
-        pageNumbers.push("ellipsis-end")
-      }
-
-      // Always show last page
-      if (totalPages > 1) {
-        pageNumbers.push(totalPages)
       }
     }
 
     return pageNumbers
   }
-
-  const loadPostData = async () => {
-      try {
-        setIsDataLoading(true)
-        const postList = await fetchPostList();
-
-        setPosts(postList)
-      } catch (error) {
-        console.error("Failed to load credit usage:", error)
-      } finally {
-        setIsDataLoading(false)
-      }
-  }
-  
-  useEffect(() => {
-    loadPostData()
-  }, [])
-
-  
-  if(posts[5]?.platform_variants) console.log(Object.keys(posts[5]?.platform_variants))
 
   return (
     <Card className="w-full shadow-sm">
@@ -310,63 +168,75 @@ const PostsTable = () => {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
-                type="text"
                 placeholder="Search posts..."
-                className="pl-8 w-full sm:w-[250px]"
+                className="pl-8 w-full sm:w-[200px]"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setCurrentPage(1)
+                }}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <div className="flex items-center">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Filter by status" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => router.push("/generate")}>New post</Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
+
+      <div className="p-4">
+        {loadError ? (
+          <div className="h-24 flex flex-col items-center justify-center gap-2 text-center">
+            <p className="text-sm text-red-600">{loadError}</p>
+            <Button variant="outline" size="sm" onClick={loadPostData}>
+              Retry
+            </Button>
+          </div>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[50px]">ID</TableHead>
-                <TableHead>Topic</TableHead>
-                {/* <TableHead className="hidden md:table-cell">Platforms</TableHead> */}
+                <TableHead>Title</TableHead>
                 <TableHead className="hidden sm:table-cell">Created on</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Scheduled on</TableHead>
+                <TableHead>Scheduled for</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentItems.length > 0 ? (
+              {isDataLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    Loading posts...
+                  </TableCell>
+                </TableRow>
+              ) : currentItems.length > 0 ? (
                 currentItems.map((post) => (
                   <TableRow key={post.id} className="group">
-                    <TableCell className="font-medium">{post.id}</TableCell>
-                    <TableCell className="max-w-[200px] truncate font-medium">{post.topic}</TableCell>
-                    {/* <TableCell className="hidden md:table-cell">
-                      <div className="flex space-x-1">
-                        {post.platform_variants && Object.keys(post.platform_variants).map((key) => (
-                          <div
-                            key={key}
-                            className="rounded-full p-1 bg-gray-100 group-hover:bg-gray-200 transition-colors"
-                            title={key.charAt(0).toUpperCase() + key.slice(1)}
-                          >
-                            <PlatformIcon platform={key} />
-                          </div>
-                        ))}
-                      </div>
-                    </TableCell> */}
+                    <TableCell
+                      className="max-w-[220px] truncate font-medium cursor-pointer hover:underline"
+                      onClick={() => handleViewDetail(post.id)}
+                    >
+                      {post.title || post.content.slice(0, 60)}
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell text-gray-500">
                       <div className="flex items-center">
                         <Calendar className="mr-1 h-3 w-3" />
@@ -375,22 +245,17 @@ const PostsTable = () => {
                     </TableCell>
                     <TableCell>{getStatusBadge(post.status)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center">
-                        <Calendar className="mr-1 h-3 w-3" />
-                        {format(new Date(post.created_at), "MMM d, yyyy")}
-                      </div>
+                      {post.scheduled_for ? (
+                        <div className="flex items-center">
+                          <Calendar className="mr-1 h-3 w-3" />
+                          {format(new Date(post.scheduled_for), "MMM d, yyyy")}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end">
-                        {/* <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewDetail(post.id)}
-                          className="text-gray-700 hover:text-primary hover:bg-gray-100"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View details</span>
-                        </Button> */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -404,11 +269,18 @@ const PostsTable = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleViewDetail(post.id)}>
-                              {/* <Eye className="mr-2 h-4 w-4" /> */}
                               View details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Edit post</DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">Delete post</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}?edit=1`)}>
+                              Edit post
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              disabled={deletingId === post.id}
+                              onClick={() => handleDelete(post)}
+                            >
+                              {deletingId === post.id ? "Deleting..." : "Delete post"}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -417,14 +289,14 @@ const PostsTable = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     No posts found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
-        </div>
+        )}
 
         {/* Pagination */}
         {totalItems > 0 && (
@@ -434,84 +306,58 @@ const PostsTable = () => {
             </div>
 
             <div className="flex items-center space-x-2">
-              {/* Items per page selector */}
               <div className="flex items-center space-x-2 mr-4">
                 <span className="text-sm text-gray-500">Show</span>
                 <Select
-                  value={String(itemsPerPage)}
+                  value={itemsPerPage.toString()}
                   onValueChange={(value) => {
                     setItemsPerPage(Number(value))
-                    setCurrentPage(1) // Reset to first page when changing items per page
+                    setCurrentPage(1)
                   }}
                 >
-                  <SelectTrigger className="w-[70px] h-8">
+                  <SelectTrigger className="w-[70px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="5">5</SelectItem>
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Page navigation */}
-              <div className="flex items-center space-x-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {getPageNumbers().map((page) => (
                 <Button
-                  variant="outline"
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
                   size="icon"
-                  className="h-8 w-8"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
+                  onClick={() => goToPage(page)}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
+                  {page}
                 </Button>
+              ))}
 
-                {/* Page numbers */}
-                <div className="hidden sm:flex items-center space-x-1">
-                  {getPageNumbers().map((pageNumber, index) =>
-                    pageNumber === "ellipsis-start" || pageNumber === "ellipsis-end" ? (
-                      <div key={`ellipsis-${index}`} className="px-2">
-                        ...
-                      </div>
-                    ) : (
-                      <Button
-                        key={`page-${pageNumber}`}
-                        variant={currentPage === pageNumber ? "default" : "outline"}
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => goToPage(Number(pageNumber))}
-                      >
-                        {pageNumber}
-                      </Button>
-                    ),
-                  )}
-                </div>
-
-                {/* Mobile page indicator */}
-                <div className="sm:hidden px-2">
-                  <span className="text-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }

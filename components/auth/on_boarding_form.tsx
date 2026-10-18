@@ -77,7 +77,7 @@ export default function MultiStepProgress() {
           const response = await handleOnboarding({
               platforms: formData.platform,
               business_type: formData.businessType,
-              pain_points: formData.platform,
+              pain_points: formData.painPoint,
               niche_title: formData.niche.title,
               niche_description: formData.niche.description,
               user_id: session.user?.id, // Ensure user exists and is valid

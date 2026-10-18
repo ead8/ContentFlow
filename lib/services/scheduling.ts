@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireUserId } from './auth'
 
 export interface CalendarEvent {
   id: string
@@ -107,11 +108,13 @@ export async function updateScheduledEvent(
   updates: Partial<CalendarEvent>
 ): Promise<CalendarEvent> {
   const supabase = await createClient()
+  const userId = await requireUserId()
 
   const { data, error } = await supabase
     .from('calendar_events')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', eventId)
+    .eq('user_id', userId)
     .select()
     .single()
 
@@ -124,11 +127,13 @@ export async function updateScheduledEvent(
  */
 export async function deleteScheduledEvent(eventId: string): Promise<void> {
   const supabase = await createClient()
+  const userId = await requireUserId()
 
   const { error } = await supabase
     .from('calendar_events')
     .delete()
     .eq('id', eventId)
+    .eq('user_id', userId)
 
   if (error) throw error
 }

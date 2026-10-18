@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireUserId } from './auth'
 
 export interface PostAnalytic {
   id: string
@@ -40,6 +41,17 @@ export async function recordPostAnalytics(
   }
 ): Promise<void> {
   const supabase = await createClient()
+  const userId = await requireUserId()
+
+  // Only record analytics for the user's own posts
+  const { data: post, error: postError } = await supabase
+    .from('content_posts')
+    .select('id')
+    .eq('id', postId)
+    .eq('user_id', userId)
+    .single()
+
+  if (postError || !post) throw new Error('Post not found')
 
   const analyticsData = [
     ...(metrics.likes ? [{ post_id: postId, platform, engagement_type: 'likes', count: metrics.likes }] : []),
@@ -63,6 +75,16 @@ export async function recordPostAnalytics(
  */
 export async function getPostAnalytics(postId: string): Promise<PostAnalytic[]> {
   const supabase = await createClient()
+  const userId = await requireUserId()
+
+  const { data: post, error: postError } = await supabase
+    .from('content_posts')
+    .select('id')
+    .eq('id', postId)
+    .eq('user_id', userId)
+    .single()
+
+  if (postError || !post) throw new Error('Post not found')
 
   const { data, error } = await supabase
     .from('post_analytics')
@@ -103,9 +125,6 @@ export async function recordPlatformAnalytics(
       platform,
       metric_date: new Date().toISOString().split('T')[0],
       ...metrics,
-    })
-    .on('*', (payload) => {
-      console.log('[v0] Analytics recorded:', payload)
     })
 
   if (error) throw error

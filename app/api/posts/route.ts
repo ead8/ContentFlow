@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPost, getUserPosts, updatePost, deletePost, publishPost } from '@/lib/services/content-posts'
+import { apiError } from '@/lib/api/error'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,12 +11,8 @@ export async function GET(request: NextRequest) {
 
     const posts = await getUserPosts(status || undefined, limit, offset)
     return NextResponse.json({ success: true, data: posts })
-  } catch (error: any) {
-    console.error('[v0] Error fetching posts:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error fetching posts')
   }
 }
 
@@ -42,12 +39,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ success: true, data: post }, { status: 201 })
-  } catch (error: any) {
-    console.error('[v0] Error creating post:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error creating post')
   }
 }
 
@@ -65,11 +58,26 @@ export async function PUT(request: NextRequest) {
 
     const post = await updatePost(postId, updates)
     return NextResponse.json({ success: true, data: post })
-  } catch (error: any) {
-    console.error('[v0] Error updating post:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error updating post')
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const postId = searchParams.get('postId')
+
+    if (!postId) {
+      return NextResponse.json(
+        { success: false, error: 'Post ID required' },
+        { status: 400 }
+      )
+    }
+
+    await deletePost(postId)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return apiError(error, 'Error deleting post')
   }
 }

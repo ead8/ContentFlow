@@ -183,7 +183,7 @@ export function CreditUsageMeter({
         {willExceedCredits && (
           <div className="flex items-center text-red-600 text-sm">
             <AlertCircle className="h-4 w-4 mr-1" />
-            <span>You don't have enough credits</span>
+            <span>You don&apos;t have enough credits</span>
           </div>
         )}
       </div>

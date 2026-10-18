@@ -48,7 +48,7 @@ export default function TermsPage() {
             <SubSection title="Your License to Us">
             <p>
                 By submitting content to us (via the Site or platforms like email/social media), you grant us a
-                royalty-free, global, irrevocable license to use, display, and distribute it. You affirm you're
+                royalty-free, global, irrevocable license to use, display, and distribute it. You affirm you&apos;re
                 legally authorized to do so and are at least 13 years old.
             </p>
             </SubSection>

@@ -65,6 +65,11 @@ export default function VideoGeneration({
     },
   })
 
+  const deliveryType = useWatch({
+    control: videoForm.control,
+    name: "delivery_type",
+  })
+
   const handleOnSubmit = async (formData: VideoFormData) => {
     if(formData.delivery_type === "email") {
       handleGenerateWithEmail(formData)
@@ -240,14 +245,9 @@ export default function VideoGeneration({
               control={videoForm.control}
               name="delivery_type"
               render={({ field }) => {
-                const selected = useWatch({
-                  control: videoForm.control,
-                  name: "delivery_type",
-                })
-                
                 return (
                   <FormItem>
-                    <FormLabel>Choose how you'd like to receive your video</FormLabel>
+                    <FormLabel>Choose how you&apos;d like to receive your video</FormLabel>
                     <FormControl>
                       <RadioGroup
                         onValueChange={field.onChange}
@@ -259,7 +259,7 @@ export default function VideoGeneration({
                             <FormControl>
                               <RadioGroupItem value="instant" />
                             </FormControl>
-                            <FormLabel className="font-normal">I'll wait here while the video is being generated</FormLabel>
+                            <FormLabel className="font-normal">I&apos;ll wait here while the video is being generated</FormLabel>
                           </div>
                         </FormItem>
                         <FormItem>
@@ -267,19 +267,19 @@ export default function VideoGeneration({
                             <FormControl>
                               <RadioGroupItem value="email" />
                             </FormControl>
-                            <FormLabel className="font-normal">Notify me via email when it's ready</FormLabel>
+                            <FormLabel className="font-normal">Notify me via email when it&apos;s ready</FormLabel>
                           </div>
                         </FormItem>
                       </RadioGroup>
                     </FormControl>
-                    {selected === "instant" && (
+                    {deliveryType === "instant" && (
                       <p className="text-sm text-muted-foreground pt-4">
                         Stay on this page while we generate your video. It may take a few minutes to generate
                       </p>
                     )}
-                    {selected === "email" && (
+                    {deliveryType === "email" && (
                       <p className="text-sm text-muted-foreground pt-4">
-                        We'll generate your video in the background and notify you by email once it's ready.
+                        We&apos;ll generate your video in the background and notify you by email once it&apos;s ready.
                       </p>
                     )}
                     <FormMessage />

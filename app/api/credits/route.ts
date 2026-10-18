@@ -6,6 +6,7 @@ import {
   getCreditTransactions,
   refillCredits,
 } from '@/lib/services/credits'
+import { apiError } from '@/lib/api/error'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,12 +21,8 @@ export async function GET(request: NextRequest) {
       const credits = await getUserCredits()
       return NextResponse.json({ success: true, data: credits })
     }
-  } catch (error: any) {
-    console.error('[v0] Error fetching credits:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error fetching credits')
   }
 }
 
@@ -58,11 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: result }, { status: 201 })
-  } catch (error: any) {
-    console.error('[v0] Error processing credits:', error.message)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiError(error, 'Error processing credits')
   }
 }
