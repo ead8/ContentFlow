@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createPost, getUserPosts } from '@/lib/services/content-posts'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/posts?status=&q=&limit=&offset=  -> list the user's posts
  */

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUserId } from '@/lib/services/auth'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Submit in-app feedback.
  * Body: { rating?: number (0-5), feedback?: string, source?: string }

@@ -1,272 +1,202 @@
-import { Button } from '@/components/ui/button'
-import { ArrowRight, Sparkles, Calendar, TrendingUp, Zap, Share2, Clock, Target } from 'lucide-react'
 import Link from 'next/link'
+import { ArrowRight, BarChart3, Calendar, Check, Image as ImageIcon, Layers, PencilLine, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
+import { CREDIT_COSTS, PLANS } from '@/lib/billing/plans'
 
 export default function Home() {
+  const free = PLANS[0]
+
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2 font-bold text-lg">
-            <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
+          <Link href="/" className="flex items-center gap-2 text-lg font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
               <Sparkles className="h-5 w-5 text-accent-foreground" />
             </div>
             <span className="text-foreground">ContentFlow</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <Link href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="#about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              About
-            </Link>
+          </Link>
+          <nav className="hidden items-center gap-8 md:flex" aria-label="Main">
+            <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Features</a>
+            <a href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">How it works</a>
+            <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Pricing</a>
           </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Log in</Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">Sign up</Button>
-            </Link>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm"><Link href="/login">Log in</Link></Button>
+            <Button asChild size="sm"><Link href="/signup">Sign up</Link></Button>
             <ModeToggle />
           </div>
         </div>
       </header>
-      
+
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="py-20 md:py-32 px-4">
-          <div className="container mx-auto flex flex-col items-center text-center max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 mb-6">
+        <section className="px-4 py-20 md:py-32">
+          <div className="container mx-auto flex max-w-3xl flex-col items-center text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3 py-1">
               <Sparkles className="h-4 w-4 text-accent" />
-              <span className="text-sm text-accent">Powered by advanced AI technology</span>
+              <span className="text-sm text-accent">AI writing assistant for social media</span>
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold leading-tight text-foreground mb-6">
-              Create and schedule <span className="text-accent">social content</span> at scale
+            <h1 className="mb-6 text-4xl font-bold leading-tight text-foreground sm:text-5xl md:text-6xl">
+              Write a week of <span className="text-accent">social posts</span> in minutes
             </h1>
-            <p className="text-lg text-muted-foreground mb-10 leading-relaxed">
-              ContentFlow transforms the way teams create, manage, and publish social media content. Leverage AI-powered writing, intelligent scheduling, and comprehensive analytics to grow your audience faster.
+            <p className="mb-10 text-lg leading-relaxed text-muted-foreground">
+              Describe your idea once. ContentFlow writes a tailored version for each platform, creates
+              images, keeps your content calendar and tracks how every post performs.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link href="/signup">
-                <Button size="lg" className="h-12 px-8 gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+            <div className="mb-10 flex flex-col justify-center gap-4 sm:flex-row">
+              <Button asChild size="lg" className="h-12 gap-2 px-8">
+                <Link href="/signup">
                   Get started free
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="#demo">
-                <Button size="lg" variant="outline" className="h-12 px-8">
-                  View demo
-                </Button>
-              </Link>
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-12 px-8">
+                <a href="#how-it-works">See how it works</a>
+              </Button>
             </div>
-            <div className="flex flex-wrap gap-6 justify-center text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-accent"></div>
-                <span>No credit card required</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-accent"></div>
-                <span>7-day free trial</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-accent"></div>
-                <span>Cancel anytime</span>
-              </div>
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2"><Check className="h-4 w-4 text-accent" />No credit card required</span>
+              <span className="flex items-center gap-2"><Check className="h-4 w-4 text-accent" />{free.monthlyCredits} free credits every month</span>
+              <span className="flex items-center gap-2"><Check className="h-4 w-4 text-accent" />Cancel paid plans anytime</span>
             </div>
           </div>
         </section>
-        
-        {/* Features Section */}
-        <section id="features" className="py-20 md:py-32 px-4 border-t border-border bg-card/30">
+
+        <section id="features" className="scroll-mt-16 border-t border-border bg-card/30 px-4 py-20 md:py-28">
           <div className="container mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Everything you need to dominate social media
-              </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                From AI-powered content creation to intelligent scheduling and detailed analytics, ContentFlow provides all the tools to manage your social presence efficiently.
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold text-foreground md:text-4xl">Everything in one workspace</h2>
+              <p className="mx-auto max-w-2xl text-muted-foreground">
+                From the first idea to the results, without juggling docs, image tools and spreadsheets.
               </p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <FeatureCard 
-                icon={<Sparkles className="h-8 w-8 text-accent" />}
-                title="AI Content Generation"
-                description="Generate compelling posts instantly with advanced AI. Create in multiple tones, languages, and styles tailored to each platform."
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <FeatureCard
+                icon={<PencilLine className="h-8 w-8 text-accent" />}
+                title="Platform-tailored copy"
+                description="One prompt becomes posts for LinkedIn, Instagram, X, Facebook, TikTok and YouTube Shorts, each respecting the platform's length and style."
               />
-              <FeatureCard 
+              <FeatureCard
+                icon={<ImageIcon className="h-8 w-8 text-accent" />}
+                title="AI images and your own media"
+                description="Generate an image from a description or upload your own photos and videos. Everything is kept in your media library."
+              />
+              <FeatureCard
+                icon={<Layers className="h-8 w-8 text-accent" />}
+                title="Edit before you post"
+                description="Fine-tune every version, adjust hashtags and calls to action, with live character counts per platform."
+              />
+              <FeatureCard
                 icon={<Calendar className="h-8 w-8 text-accent" />}
-                title="Smart Scheduling"
-                description="Schedule posts for optimal times using AI-powered recommendations. Manage content across all platforms from one dashboard."
+                title="Content calendar"
+                description="Schedule posts and campaign milestones on a monthly calendar, with reminders when a post is due."
               />
-              <FeatureCard 
-                icon={<TrendingUp className="h-8 w-8 text-accent" />}
-                title="Advanced Analytics"
-                description="Track engagement, reach, and conversions with detailed insights. Understand what resonates with your audience."
+              <FeatureCard
+                icon={<ArrowRight className="h-8 w-8 text-accent" />}
+                title="Publish in a click"
+                description="Copy the finished text and open each platform's composer directly, pre-filled where the platform allows it."
               />
-              <FeatureCard 
-                icon={<Zap className="h-8 w-8 text-accent" />}
-                title="Multi-Platform Integration"
-                description="Seamlessly connect and publish to LinkedIn, Instagram, X, YouTube, TikTok, and Facebook from one place."
-              />
-              <FeatureCard 
-                icon={<Share2 className="h-8 w-8 text-accent" />}
-                title="Content Library Management"
-                description="Organize, categorize, and reuse content. Build a scalable library of your best-performing posts."
-              />
-              <FeatureCard 
-                icon={<Target className="h-8 w-8 text-accent" />}
-                title="Audience Insights"
-                description="Understand your audience demographics, preferences, and growth trends to refine your strategy."
+              <FeatureCard
+                icon={<BarChart3 className="h-8 w-8 text-accent" />}
+                title="Performance tracking"
+                description="Record impressions, likes, comments and clicks for each post and see what works across platforms."
               />
             </div>
           </div>
         </section>
 
-        {/* How It Works Section */}
-        <section className="py-20 md:py-32 px-4">
+        <section id="how-it-works" className="scroll-mt-16 px-4 py-20 md:py-28">
           <div className="container mx-auto max-w-3xl">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                How ContentFlow works
-              </h2>
-              <p className="text-muted-foreground">
-                Get your content strategy off the ground in minutes, not months.
-              </p>
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold text-foreground md:text-4xl">How ContentFlow works</h2>
             </div>
-            
             <div className="space-y-8">
-              <StepCard 
-                number="1"
-                title="Connect Your Accounts"
-                description="Link your social media accounts securely. We support LinkedIn, Instagram, X, YouTube, TikTok, and Facebook with encrypted token storage."
-              />
-              <StepCard 
-                number="2"
-                title="Create or Generate Content"
-                description="Write custom content or use our AI to generate posts in seconds. Customize tone, length, and messaging for each platform."
-              />
-              <StepCard 
-                number="3"
-                title="Schedule & Publish"
-                description="Schedule posts for optimal times or publish immediately. Monitor performance across all platforms in real-time."
-              />
-              <StepCard 
-                number="4"
-                title="Analyze & Optimize"
-                description="Track detailed metrics, understand audience behavior, and continuously refine your content strategy with data-driven insights."
-              />
+              <StepCard number="1" title="Describe your idea" description="Pick your platforms, a tone and your audience, and tell ContentFlow what the post is about." />
+              <StepCard number="2" title="Review the drafts" description="Get a tailored version for each platform. Edit anything, then add an AI image or your own media." />
+              <StepCard number="3" title="Schedule it" description="Save a draft or schedule a date and time. ContentFlow reminds you when it's time to post." />
+              <StepCard number="4" title="Post and measure" description="Copy each version into the platform, mark it as published, and record its results to compare performance." />
             </div>
           </div>
         </section>
-        
-        {/* CTA Section */}
-        <section className="py-20 md:py-32 px-4 bg-card/50 border-t border-border">
-          <div className="container mx-auto text-center max-w-3xl">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-              Ready to transform your social strategy?
-            </h2>
-            <p className="text-lg text-muted-foreground mb-10">
-              Join hundreds of creators and businesses saving time and growing their audience with ContentFlow. Start your free trial today—no credit card required.
+
+        <section id="pricing" className="scroll-mt-16 border-t border-border bg-card/30 px-4 py-20 md:py-28">
+          <div className="container mx-auto max-w-5xl">
+            <div className="mb-12 text-center">
+              <h2 className="mb-4 text-3xl font-bold text-foreground md:text-4xl">Simple, credit-based pricing</h2>
+              <p className="text-muted-foreground">
+                Generating posts for a campaign costs {CREDIT_COSTS.text} credits, an image costs {CREDIT_COSTS.image}.
+                Every plan refreshes monthly.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {PLANS.map((plan) => (
+                <div key={plan.id} className="rounded-lg border bg-background p-5">
+                  <h3 className="font-semibold">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+                  <p className="mt-4 text-2xl font-bold">{plan.monthlyCredits.toLocaleString('en-US')}</p>
+                  <p className="text-sm text-muted-foreground">credits / month</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Start free, no card needed. See current prices for paid plans after signing up.
             </p>
-            <Link href="/signup">
-              <Button size="lg" className="h-12 px-8 gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-                Start free trial
+          </div>
+        </section>
+
+        <section className="px-4 py-20 md:py-28">
+          <div className="container mx-auto max-w-3xl text-center">
+            <h2 className="mb-6 text-3xl font-bold text-foreground md:text-4xl">Ready to plan your next campaign?</h2>
+            <Button asChild size="lg" className="h-12 gap-2 px-8">
+              <Link href="/signup">
+                Create your free account
                 <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </section>
       </main>
-      
-      {/* Footer */}
-      <footer className="border-t border-border py-8 px-4 bg-card/30">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition-colors">Features</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Pricing</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Security</Link></li>
-              </ul>
+
+      <footer className="border-t border-border bg-card/30 px-4 py-8">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-4 md:flex-row">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent">
+              <Sparkles className="h-4 w-4 text-accent-foreground" />
             </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition-colors">About</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Blog</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Careers</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Contact</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-4">Social</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition-colors">Twitter</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">LinkedIn</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">GitHub</Link></li>
-              </ul>
-            </div>
+            <span className="font-semibold text-foreground">ContentFlow</span>
           </div>
-          <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-lg bg-accent flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-accent-foreground" />
-              </div>
-              <span className="font-semibold text-foreground">ContentFlow</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              © 2025 ContentFlow. All rights reserved.
-            </p>
-          </div>
+          <nav className="flex gap-6 text-sm text-muted-foreground" aria-label="Footer">
+            <a href="#features" className="hover:text-foreground">Features</a>
+            <a href="#pricing" className="hover:text-foreground">Pricing</a>
+            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="hover:text-foreground">Terms</Link>
+          </nav>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} ContentFlow</p>
         </div>
       </footer>
     </div>
   )
 }
 
-function FeatureCard({ icon, title, description }: { 
-  icon: React.ReactNode, 
-  title: string, 
-  description: string 
-}) {
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="bg-background rounded-lg p-6 border border-border transition-all duration-300 hover:border-accent/50 hover:bg-card/50">
+    <div className="rounded-lg border border-border bg-background p-6 transition-colors hover:border-accent/50">
       <div className="mb-4">{icon}</div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+      <h3 className="mb-2 text-lg font-semibold text-foreground">{title}</h3>
       <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }
 
-function StepCard({ number, title, description }: {
-  number: string,
-  title: string,
-  description: string
-}) {
+function StepCard({ number, title, description }: { number: string; title: string; description: string }) {
   return (
     <div className="flex gap-6">
-      <div className="flex-shrink-0">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-accent-foreground font-semibold">
-          {number}
-        </div>
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent font-semibold text-accent-foreground">
+        {number}
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+        <h3 className="mb-2 text-lg font-semibold text-foreground">{title}</h3>
         <p className="text-muted-foreground">{description}</p>
       </div>
     </div>

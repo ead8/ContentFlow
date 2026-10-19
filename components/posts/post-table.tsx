@@ -1,344 +1,210 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { FormEvent, useEffect, useState } from "react"
+import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
-import {
-  Filter,
-  MoreHorizontal,
-  Search,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, PencilLine, Search } from "lucide-react"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardHeader, CardTitle } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import type { ContentPost } from "@/lib/services/content-posts"
-import { PostStatusBadge, POST_STATUS_FILTERS } from "@/components/posts/post-status-badge"
+import { deletePost, fetchPosts, type Post } from "@/lib/api/client"
+import { platformLabel } from "@/lib/platforms"
+import { StatusBadge } from "./status-badge"
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init)
-  const body = await res.json().catch(() => null)
-  if (!res.ok || body?.success === false) {
-    throw new Error(body?.error || `Request failed (${res.status})`)
-  }
-  return body.data as T
-}
+const PAGE_SIZE = 10
 
 const PostsTable = () => {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
-  const [posts, setPosts] = useState<ContentPost[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [isDataLoading, setIsDataLoading] = useState(false)
+
+  const q = searchParams.get("q") || ""
+  const status = searchParams.get("status") || "all"
+
+  const [posts, setPosts] = useState<Post[] | null>(null)
+  const [search, setSearch] = useState(q)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(5)
-
-  const loadPostData = async () => {
-    try {
-      setIsDataLoading(true)
-      setLoadError(null)
-      const postList = await api<ContentPost[]>("/api/posts?limit=100")
-      setPosts(postList)
-    } catch (error: any) {
-      setLoadError(error.message || "Failed to load posts.")
-    } finally {
-      setIsDataLoading(false)
-    }
-  }
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
-    loadPostData()
-  }, [])
+    setSearch(q)
+    setPage(1)
+    setPosts(null)
+    setLoadError(null)
+    fetchPosts({ q: q || undefined, status: status === "all" ? undefined : status, limit: 200 })
+      .then(setPosts)
+      .catch((e) => setLoadError(e.message || "Failed to load posts."))
+  }, [q, status])
 
-  const handleDelete = async (post: ContentPost) => {
+  const setParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value && value !== "all") params.set(key, value)
+    else params.delete(key)
+    router.replace(`${pathname}${params.size ? `?${params}` : ""}`)
+  }
+
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault()
+    setParam("q", search.trim())
+  }
+
+  const handleDelete = async (post: Post) => {
     const label = post.title || post.content.slice(0, 40)
     if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return
 
     try {
       setDeletingId(post.id)
-      await api(`/api/posts?postId=${encodeURIComponent(post.id)}`, { method: "DELETE" })
-      setPosts((prev) => prev.filter((p) => p.id !== post.id))
+      await deletePost(post.id)
+      setPosts((prev) => prev?.filter((p) => p.id !== post.id) ?? null)
       toast({ title: "Post deleted" })
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Delete failed",
-        description: error.message || "Could not delete the post.",
-      })
+      toast({ variant: "destructive", title: "Delete failed", description: error.message })
     } finally {
       setDeletingId(null)
     }
   }
 
-  // Filter posts based on search query and status filter
-  const filteredPosts = posts.filter((post) => {
-    const haystack = `${post.title || ""} ${post.content}`.toLowerCase()
-    const matchesSearch = haystack.includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || post.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
-
-  // Calculate pagination values
-  const totalItems = filteredPosts.length
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems)
-  const currentItems = filteredPosts.slice(startIndex, endIndex)
-
-  // Pagination handlers
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, Math.max(totalPages, 1))))
-  }
-  const goToPreviousPage = () => goToPage(currentPage - 1)
-  const goToNextPage = () => goToPage(currentPage + 1)
-
-  const handleViewDetail = (postId: string) => {
-    router.push(`/posts/${postId}`)
-  }
-
-  const getStatusBadge = (status: string) => <PostStatusBadge status={status} />
-
-  // Generate page numbers for pagination
-  const getPageNumbers = () => {
-    const pageNumbers = []
-    const maxVisiblePages = 5
-
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i)
-      }
-    } else {
-      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-      if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1)
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-        pageNumbers.push(i)
-      }
-    }
-
-    return pageNumbers
-  }
+  const total = posts?.length ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const current = posts?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) ?? []
 
   return (
-    <Card className="w-full shadow-sm">
-      <CardHeader className="pb-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="text-xl font-semibold">Posts</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Search posts..."
-                className="pl-8 w-full sm:w-[200px]"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value)
-                  setCurrentPage(1)
-                }}
-              >
-                <SelectTrigger className="w-[170px]" aria-label="Filter by status">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {POST_STATUS_FILTERS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={() => router.push("/generate")}>New post</Button>
-          </div>
-        </div>
+    <Card>
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="text-2xl">My Posts</CardTitle>
+        <Button asChild>
+          <Link href="/generate">
+            <PencilLine className="mr-2 h-4 w-4" />
+            Create post
+          </Link>
+        </Button>
       </CardHeader>
 
-      <div className="p-4">
+      <CardContent className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <form onSubmit={onSearch} role="search" className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search title or content, then press Enter"
+              aria-label="Search posts"
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </form>
+          <Select value={status} onValueChange={(v) => setParam("status", v)}>
+            <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="draft">Drafts</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {loadError ? (
-          <div className="h-24 flex flex-col items-center justify-center gap-2 text-center">
-            <p className="text-sm text-red-600">{loadError}</p>
-            <Button variant="outline" size="sm" onClick={loadPostData}>
-              Retry
-            </Button>
+          <div className="py-12 text-center">
+            <p className="mb-4 text-destructive">{loadError}</p>
+            <Button variant="outline" onClick={() => router.refresh()}>Retry</Button>
+          </div>
+        ) : !posts ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-12 text-center">
+            <p className="mb-4 text-muted-foreground">
+              {q || status !== "all" ? "No posts match your filters." : "No posts yet."}
+            </p>
+            {!q && status === "all" && (
+              <Button asChild>
+                <Link href="/generate">Create your first post</Link>
+              </Button>
+            )}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead className="hidden sm:table-cell">Created on</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Scheduled for</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isDataLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    Loading posts...
-                  </TableCell>
-                </TableRow>
-              ) : currentItems.length > 0 ? (
-                currentItems.map((post) => (
-                  <TableRow key={post.id} className="group">
-                    <TableCell
-                      className="max-w-[220px] truncate font-medium cursor-pointer hover:underline"
-                      onClick={() => handleViewDetail(post.id)}
-                    >
-                      {post.title || post.content.slice(0, 60)}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="mr-1 h-3 w-3" />
-                        {format(new Date(post.created_at), "MMM d, yyyy")}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(post.status)}</TableCell>
-                    <TableCell>
-                      {post.scheduled_for ? (
-                        <div className="flex items-center">
-                          <Calendar className="mr-1 h-3 w-3" />
-                          {format(new Date(post.scheduled_for), "MMM d, yyyy")}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end">
+          <>
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Post</TableHead>
+                    <TableHead className="hidden md:table-cell">Platforms</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Date</TableHead>
+                    <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {current.map((post) => (
+                    <TableRow key={post.id} className="cursor-pointer" onClick={() => router.push(`/posts/${post.id}`)}>
+                      <TableCell className="max-w-[260px]">
+                        <Link
+                          href={`/posts/${post.id}`}
+                          className="block truncate font-medium hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {post.title || post.content.slice(0, 60)}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">{post.content.slice(0, 90)}</p>
+                      </TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                        {post.platforms.length ? post.platforms.map(platformLabel).join(", ") : "—"}
+                      </TableCell>
+                      <TableCell><StatusBadge status={post.status} /></TableCell>
+                      <TableCell className="hidden whitespace-nowrap text-sm sm:table-cell">
+                        {format(new Date(post.published_at || post.scheduled_for || post.created_at), "MMM d, yyyy h:mm a")}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-gray-700 hover:text-primary hover:bg-gray-100"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">More options</span>
+                            <Button variant="ghost" size="icon" aria-label="Post actions" disabled={deletingId === post.id}>
+                              {deletingId === post.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetail(post.id)}>
-                              View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={(post.status as string) === "publishing"}
-                              onClick={() => router.push(`/posts/${post.id}?edit=1`)}
-                            >
-                              Edit post
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              disabled={deletingId === post.id || (post.status as string) === "publishing"}
-                              onClick={() => handleDelete(post)}
-                            >
-                              {deletingId === post.id ? "Deleting..." : "Delete post"}
+                            <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}`)}>Open</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}?edit=1`)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(post)}>
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No posts found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
-
-        {/* Pagination */}
-        {totalItems > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0 mt-4">
-            <div className="text-sm text-gray-500">
-              Showing {startIndex + 1}-{endIndex} of {totalItems} posts
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2 mr-4">
-                <span className="text-sm text-gray-500">Show</span>
-                <Select
-                  value={itemsPerPage.toString()}
-                  onValueChange={(value) => {
-                    setItemsPerPage(Number(value))
-                    setCurrentPage(1)
-                  }}
-                >
-                  <SelectTrigger className="w-[70px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              {getPageNumbers().map((page) => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="icon"
-                  onClick={() => goToPage(page)}
-                >
-                  {page}
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={() => setPage((p) => p - 1)} disabled={page <= 1} aria-label="Previous page">
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              ))}
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages || totalPages === 0}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                <Button variant="outline" size="icon" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages} aria-label="Next page">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </CardContent>
     </Card>
   )
 }

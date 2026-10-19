@@ -1,100 +1,43 @@
 'use client'
 
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import Link from 'next/link'
+import { Coins } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-
 
 interface CreditLockoutModalProps {
   isOpen: boolean
   onClose: () => void
-  /** Credits remaining in the wallet (profiles.credits) */
-  credits?: number
-  /** Monthly allowance of the user's plan */
-  monthlyAllowance?: number
-  /** Credits the blocked operation costs */
-  requiredCredits?: number
-  /** Defaults to closing the modal and opening the plans at /settings#billing */
-  onUpgradeClick?: () => void
+  /** Current balance */
+  credits: number
+  /** Cost of the action the user tried */
+  cost: number
 }
 
-const CreditLockoutModal = ({
-  isOpen,
-  onClose,
-  credits = 0,
-  monthlyAllowance,
-  requiredCredits,
-  onUpgradeClick,
-}: CreditLockoutModalProps) => {
-  const router = useRouter()
-  const handleUpgrade =
-    onUpgradeClick ??
-    (() => {
-      onClose()
-      router.push('/settings#billing')
-    })
-
-  const remaining = Math.max(0, credits)
-
+/**
+ * Shown when an AI action costs more credits than the user has left.
+ */
+const CreditLockoutModal = ({ isOpen, onClose, credits, cost }: CreditLockoutModalProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
-        <div className="flex flex-col items-center text-center p-4">
-          {/* Warning Icon */}
-          <div className="w-16 h-16 bg-[#FFC107] rounded-full flex items-center justify-center mb-6">
-            <span className="text-4xl font-bold text-white" aria-hidden="true">!</span>
+        <DialogHeader className="items-center text-center">
+          <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15">
+            <Coins className="h-7 w-7 text-amber-500" />
           </div>
-
-          <DialogTitle className="text-xl font-semibold mb-3">Not enough credits</DialogTitle>
-
-          {/* Credits Display */}
-          <div className="flex items-center mb-4">
-            <div className="mr-2">
-              <Image
-                src="/images/icons/credit.svg"
-                alt=""
-                width={26}
-                height={26}
-              />
-            </div>
-            <span className="text-[32px] font-semibold text-[#339DFF]">
-              {remaining.toLocaleString()}
-            </span>
-            {monthlyAllowance !== undefined && monthlyAllowance > 0 && (
-              <>
-                <span className="text-gray-600 mx-1">/</span>
-                <span className="text-[#828282]">{monthlyAllowance.toLocaleString()}</span>
-              </>
-            )}
-            <span className="ml-2 text-sm text-muted-foreground">credits left</span>
-          </div>
-
-          {/* Message */}
-          <DialogDescription className="text-gray-600 mb-6">
-            {requiredCredits
-              ? `This needs ${requiredCredits.toLocaleString()} credits and you have ${remaining.toLocaleString()} left.`
-              : "You don't have enough credits left for this."}
-            <br />
-            Upgrade your plan or wait for your monthly credits to refresh.
+          <DialogTitle>Not enough credits</DialogTitle>
+          <DialogDescription>
+            This action costs {cost} credits and you have {credits} left. Upgrade your plan to get
+            more credits every month.
           </DialogDescription>
-
-          {/* Buttons */}
-          <div className="flex gap-4 w-full max-w-xs">
-            <Button
-              variant="outline"
-              className="flex-1  border-[#339DFF] text-[#339DFF] font-medium text-base"
-              onClick={onClose}
-            >
-              Do it Later
-            </Button>
-            <Button
-              className="flex-1 bg-[#2F80ED]"
-              onClick={handleUpgrade}
-            >
-              Upgrade
-            </Button>
-          </div>
+        </DialogHeader>
+        <div className="mt-2 flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Not now
+          </Button>
+          <Button asChild className="flex-1">
+            <Link href="/billing">See plans</Link>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

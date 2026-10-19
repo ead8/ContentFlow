@@ -1,34 +1,16 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, LogOut, Save, KeyRound } from "lucide-react"
+import { Loader2, LogOut, Save, KeyRound, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ConnectedAccounts } from "@/components/settings/connected-accounts"
-import { BillingCard, BillingCardFallback } from "@/components/settings/billing-card"
-import { DeleteAccountCard } from "@/components/settings/delete-account"
-
-function ConnectedAccountsFallback() {
-  return (
-    <Card id="accounts" className="scroll-mt-20">
-      <CardHeader>
-        <CardTitle>Connected accounts</CardTitle>
-        <CardDescription>Loading your social accounts…</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-16 w-full" />
-      </CardContent>
-    </Card>
-  )
-}
+import { deleteAccount } from "@/lib/api/client"
+import { useAuth } from "@/components/auth-provider"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -40,6 +22,9 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [savingPassword, setSavingPassword] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState("")
+  const [deleting, setDeleting] = useState(false)
+  const { signOut, refreshProfile } = useAuth()
 
   useEffect(() => {
     const load = async () => {
@@ -74,6 +59,7 @@ export default function SettingsPage() {
         .update({ full_name: fullName.trim() || null })
         .eq("id", user.id)
       if (error) throw error
+      await refreshProfile()
       toast({ title: "Profile updated" })
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update failed", description: e.message })
@@ -83,8 +69,8 @@ export default function SettingsPage() {
   }
 
   const handlePasswordChange = async () => {
-    if (newPassword.length < 6) {
-      toast({ variant: "destructive", title: "Password too short", description: "Use at least 6 characters." })
+    if (newPassword.length < 8) {
+      toast({ variant: "destructive", title: "Password too short", description: "Use at least 8 characters." })
       return
     }
     if (newPassword !== confirmPassword) {
@@ -105,25 +91,28 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/login")
+  const handleSignOut = () => signOut()
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      await deleteAccount()
+      toast({ title: "Account deleted", description: "Your account and content have been removed." })
+      router.push("/")
+      router.refresh()
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Could not delete account", description: e.message })
+      setDeleting(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
   }
 
   return (
-    <main className="mx-auto max-w-2xl py-8 px-4 min-h-screen space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
-
-      {/* useSearchParams (OAuth result) needs a Suspense boundary for static builds */}
-      <Suspense fallback={<ConnectedAccountsFallback />}>
-        <ConnectedAccounts />
-      </Suspense>
-
-      {/* Handles ?billing=success|canceled after Stripe Checkout (useSearchParams) */}
-      <Suspense fallback={<BillingCardFallback />}>
-        <BillingCard />
-      </Suspense>
 
       <Card>
         <CardHeader>
@@ -131,33 +120,23 @@ export default function SettingsPage() {
           <CardDescription>How your name appears across the app.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading ? (
-            <div className="space-y-4" aria-hidden="true">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-32" />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" value={email} disabled />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Display name</Label>
-                <Input
-                  id="fullName"
-                  placeholder="Your name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleSaveName} disabled={savingName}>
-                {savingName ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Save changes
-              </Button>
-            </>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" value={email} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Display name</Label>
+            <Input
+              id="fullName"
+              placeholder="Your name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </div>
+          <Button onClick={handleSaveName} disabled={savingName}>
+            {savingName ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Save changes
+          </Button>
         </CardContent>
       </Card>
 
@@ -174,7 +153,7 @@ export default function SettingsPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
             />
           </div>
           <div className="space-y-2">
@@ -199,13 +178,34 @@ export default function SettingsPage() {
           <CardDescription>Sign out of ContentFlow on this device.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={handleSignOut}>
+          <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" /> Sign out
           </Button>
         </CardContent>
       </Card>
 
-      <DeleteAccountCard />
-    </main>
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-destructive">Delete account</CardTitle>
+          <CardDescription>
+            Permanently delete your account, posts, media and history. Any paid subscription is
+            cancelled. This cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Label htmlFor="deleteConfirm">Type DELETE to confirm</Label>
+          <Input
+            id="deleteConfirm"
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            autoComplete="off"
+          />
+          <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteConfirm !== "DELETE" || deleting}>
+            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Delete my account
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -76,6 +76,25 @@ Rules:
 - Write in the brand voice implied by the prompt; never include placeholder text like [Your Brand].
 ${platformInstructions}`
 
+  // Retry transient provider errors (429/5xx) and occasional malformed JSON
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const raw = await requestCompletion(key, system, input.prompt)
+      return normalizeGeneration(raw, input.platforms)
+    } catch (err) {
+      lastError = err as Error
+      if (!(err instanceof MalformedResponseError || err instanceof TransientProviderError)) break
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500))
+    }
+  }
+  throw lastError ?? new Error('AI generation failed. Please try again.')
+}
+
+class MalformedResponseError extends Error {}
+class TransientProviderError extends Error {}
+
+async function requestCompletion(key: string, system: string, prompt: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: authHeaders(key),
@@ -84,9 +103,11 @@ ${platformInstructions}`
       model: TEXT_MODEL,
       response_format: { type: 'json_object' },
       temperature: 0.8,
+      // A fresh seed avoids providers returning the same cached reply on retry
+      seed: Math.floor(Math.random() * 1_000_000),
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: input.prompt },
+        { role: 'user', content: prompt },
       ],
     }),
   })
@@ -94,59 +115,137 @@ ${platformInstructions}`
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     console.error(`AI text generation failed (${res.status}):`, detail.slice(0, 500))
-    throw new Error(`AI generation failed (${res.status}). Please try again.`)
+    const message = `AI generation failed (${res.status}). Please try again.`
+    if (res.status === 429 || res.status >= 500) throw new TransientProviderError(message)
+    throw new Error(message)
   }
 
   const json = await res.json()
   const raw: string | undefined = json.choices?.[0]?.message?.content
-  if (!raw) throw new Error('AI generation returned an empty response. Please try again.')
+  if (!raw) throw new MalformedResponseError('AI generation returned an empty response. Please try again.')
+  return raw
+}
 
-  const parsed = parseJsonObject(raw) as ContentGenerationResponse | null
-  if (!parsed?.platform_posts || typeof parsed.platform_posts !== 'object') {
-    throw new Error('AI generation returned an incomplete response. Please try again.')
+const simplify = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+
+/** Accept a few spellings models use for platform keys */
+const PLATFORM_ALIASES: Record<string, string[]> = {
+  'X-Twitter': ['xtwitter', 'twitter', 'x', 'twitterx'],
+  YouTube_Shorts: ['youtubeshorts', 'youtube', 'shorts'],
+  Tiktok: ['tiktok'],
+  LinkedIn: ['linkedin'],
+  Instagram: ['instagram'],
+  Facebook: ['facebook'],
+}
+
+function normalizeGeneration(raw: string, platforms: string[]): ContentGenerationResponse {
+  const parsed = parseJsonObject(raw) as Record<string, any> | null
+  if (!parsed || typeof parsed !== 'object') {
+    console.error('AI returned unparseable output:', raw.slice(0, 500))
+    throw new MalformedResponseError('AI generation returned an incomplete response. Please try again.')
   }
 
-  // Keep only the requested platforms and normalise the fields the UI edits
+  // Posts are normally under platform_posts, but some models put them at the top level
+  const source: Record<string, any> =
+    parsed.platform_posts && typeof parsed.platform_posts === 'object' ? parsed.platform_posts : parsed
+
+  const byKey = new Map(Object.entries(source).map(([k, v]) => [simplify(k), v]))
+
   const platform_posts: ContentGenerationResponse['platform_posts'] = {}
-  for (const platform of input.platforms) {
-    const post = parsed.platform_posts[platform]
-    if (!post) continue
+  for (const platform of platforms) {
+    const keys = [simplify(platform), ...(PLATFORM_ALIASES[platform] || [])]
+    let post = keys.map((k) => byKey.get(k)).find((v) => v)
+    if (typeof post === 'string') post = { post }
+    if (!post || typeof post !== 'object') continue
+
+    const text = [post.post, post.caption, post.text, post.content, post.description].find(
+      (v) => typeof v === 'string' && v.trim()
+    )
+    if (!text) continue
+
     platform_posts[platform] = {
       ...post,
-      post: typeof post.post === 'string' ? post.post : post.caption || '',
+      post: text,
       hashtags: Array.isArray(post.hashtags)
-        ? post.hashtags.map((h) => String(h).replace(/^#+/, '').trim()).filter(Boolean)
-        : [],
+        ? post.hashtags.map((h: unknown) => String(h).replace(/^#+/, '').trim()).filter(Boolean)
+        : typeof post.hashtags === 'string'
+          ? post.hashtags.split(/[\s,]+/).map((h: string) => h.replace(/^#+/, '').trim()).filter(Boolean)
+          : [],
     }
   }
 
   if (Object.keys(platform_posts).length === 0) {
-    throw new Error('AI generation returned no posts for the selected platforms. Please try again.')
+    console.error('AI output had no usable posts:', raw.slice(0, 500))
+    throw new MalformedResponseError('AI generation returned an incomplete response. Please try again.')
   }
 
   return {
-    name: parsed.name || 'Untitled campaign',
-    description: parsed.description || '',
+    name: typeof parsed.name === 'string' && parsed.name ? parsed.name : 'Untitled campaign',
+    description: typeof parsed.description === 'string' ? parsed.description : '',
     platform_posts,
     additional_notes: parsed.additional_notes,
   }
 }
 
-/** Parse a JSON object from model output, tolerating code fences/prose */
+/** Parse a JSON object from model output, tolerating code fences, prose and sloppy escaping */
 function parseJsonObject(raw: string): unknown {
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
-  try {
-    return JSON.parse(cleaned)
-  } catch {
-    const first = cleaned.indexOf('{')
-    const last = cleaned.lastIndexOf('}')
-    if (first === -1 || last <= first) return null
-    try {
-      return JSON.parse(cleaned.slice(first, last + 1))
-    } catch {
-      return null
+  const first = cleaned.indexOf('{')
+  const last = cleaned.lastIndexOf('}')
+  const candidates = [cleaned]
+  if (first !== -1 && last > first) candidates.push(cleaned.slice(first, last + 1))
+
+  for (const c of candidates) {
+    for (const text of [c, repairJson(c)]) {
+      try {
+        return JSON.parse(text)
+      } catch {
+        // try the next variant
+      }
     }
   }
+  return null
+}
+
+/**
+ * Fix the most common ways models break JSON inside string literals:
+ * raw newlines / tabs / control characters and invalid backslash escapes.
+ */
+function repairJson(text: string): string {
+  let out = ''
+  let inString = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (!inString) {
+      if (ch === '"') inString = true
+      out += ch
+      continue
+    }
+    if (ch === '\\') {
+      const next = text[i + 1]
+      if (next !== undefined && '"\\/bfnrtu'.includes(next)) {
+        out += ch + next
+        i++
+      } else if (next === '\n' || next === '\r') {
+        // backslash + line break: keep it as an escaped newline
+        out += '\\n'
+        i++
+        if (next === '\r' && text[i + 1] === '\n') i++
+      } else {
+        out += '\\\\'
+      }
+      continue
+    }
+    if (ch === '"') {
+      inString = false
+      out += ch
+    } else if (ch === '\n') out += '\\n'
+    else if (ch === '\r') continue
+    else if (ch === '\t') out += '\\t'
+    else if (ch.charCodeAt(0) < 0x20) out += ' '
+    else out += ch
+  }
+  return out
 }
 
 export interface GeneratedImage {

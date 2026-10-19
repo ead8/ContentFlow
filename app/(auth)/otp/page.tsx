@@ -1,14 +1,14 @@
-"use client"
-
+import { Suspense } from "react"
 import OTPVerification from "@/components/auth/otp_form"
 
-const OTPPage = () =>{
+export const metadata = { title: "Verify email" }
 
+export default function Page() {
   return (
     <div className="flex items-center justify-center">
-      <OTPVerification/>
+      <Suspense>
+        <OTPVerification />
+      </Suspense>
     </div>
   )
 }
-
-export default OTPPage

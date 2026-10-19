@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
-import { AlertTriangle, Bell, CheckCheck, CheckCircle2, Hand, Loader2, Unplug } from "lucide-react"
+import { AlertTriangle, Bell, CheckCheck, CheckCircle2, Clock, Coins, Hand, Loader2, Sparkles, Unplug } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -20,9 +20,19 @@ export interface AppNotification {
   created_at: string
 }
 
+/** Live condition (low credits, overdue post, onboarding); not stored, never "read" */
+export interface AppAlert {
+  id: string
+  type: string
+  title: string
+  body: string
+  link: string
+}
+
 interface NotificationsData {
   notifications: AppNotification[]
   unread: number
+  alerts?: AppAlert[]
 }
 
 const POLL_MS = 60_000
@@ -48,6 +58,12 @@ function TypeIcon({ type }: { type: string }) {
       return <Unplug className={cn(cls, "text-amber-600 dark:text-amber-400")} aria-hidden="true" />
     case "needs_manual":
       return <Hand className={cn(cls, "text-orange-600 dark:text-orange-400")} aria-hidden="true" />
+    case "post_overdue":
+      return <Clock className={cn(cls, "text-orange-600 dark:text-orange-400")} aria-hidden="true" />
+    case "low_credits":
+      return <Coins className={cn(cls, "text-amber-600 dark:text-amber-400")} aria-hidden="true" />
+    case "onboarding":
+      return <Sparkles className={cn(cls, "text-primary")} aria-hidden="true" />
     default:
       return <Bell className={cn(cls, "text-muted-foreground")} aria-hidden="true" />
   }
@@ -64,6 +80,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<AppNotification[]>([])
   const [unread, setUnread] = useState(0)
+  const [alerts, setAlerts] = useState<AppAlert[]>([])
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [markingAll, setMarkingAll] = useState(false)
@@ -76,6 +93,7 @@ export function NotificationBell() {
       const data = await request<NotificationsData>("/api/notifications?limit=20")
       setItems(data?.notifications ?? [])
       setUnread(typeof data?.unread === "number" ? data.unread : 0)
+      setAlerts(data?.alerts ?? [])
       setFailed(false)
     } catch {
       // Fail silently: the bell is non-essential UI.
@@ -138,7 +156,13 @@ export function NotificationBell() {
     }
   }
 
-  const badge = unread > 99 ? "99+" : String(unread)
+  const badgeCount = unread + alerts.length
+  const badge = badgeCount > 99 ? "99+" : String(badgeCount)
+
+  const openAlert = (a: AppAlert) => {
+    setOpen(false)
+    router.push(a.link)
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -147,10 +171,10 @@ export function NotificationBell() {
           variant="ghost"
           size="icon"
           className="relative h-9 w-9"
-          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+          aria-label={badgeCount > 0 ? `Notifications, ${badgeCount} new` : "Notifications"}
         >
           <Bell className="h-4 w-4" />
-          {unread > 0 && (
+          {badgeCount > 0 && (
             <span
               aria-hidden="true"
               className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground"
@@ -188,12 +212,31 @@ export function NotificationBell() {
               </div>
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && alerts.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
             {failed ? "Notifications are unavailable right now." : "You're all caught up."}
           </p>
         ) : (
           <div className="max-h-[60vh] overflow-y-auto">
+            {alerts.length > 0 && (
+              <ul className="divide-y border-b bg-amber-500/5" role="list" aria-label="Needs attention">
+                {alerts.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => openAlert(a)}
+                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                    >
+                      <TypeIcon type={a.type} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{a.title}</span>
+                        <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{a.body}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <ul className="divide-y" role="list">
               {items.map((n) => (
                 <li key={n.id}>

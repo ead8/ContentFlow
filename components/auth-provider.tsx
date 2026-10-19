@@ -1,27 +1,32 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter, usePathname } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 type User = {
   id: string
   email: string
-  role: 'admin' | 'user'
+  fullName: string | null
+  plan: string
   credits: number
+  isOnboarded: boolean
 }
+
+type AuthResult = { error: { message: string } | null }
 
 type AuthContextType = {
   user: User | null
   isLoading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  updatePassword: (password: string) => Promise<{ error: any }>
-  signUp: (email: string) => Promise<{ error: any }>
-  verifyOTP: (email: string, fullName: string, userType: string, token: string) => Promise<{ error: any }>
-  reset: (email: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<AuthResult>
+  signUp: (email: string, fullName: string, userType: string) => Promise<AuthResult>
+  resendCode: (email: string) => Promise<AuthResult>
+  verifyOTP: (email: string, token: string, profile?: { fullName?: string; userType?: string }) => Promise<AuthResult>
+  updatePassword: (password: string) => Promise<AuthResult>
+  reset: (email: string) => Promise<AuthResult>
   signOut: () => Promise<void>
-  sendMagicLink: (email: string) => Promise<{ error: any }>
+  /** Re-read plan / credits after they change */
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -29,175 +34,134 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
-  const pathname = usePathname()
+
+  const loadUser = useCallback(
+    async (authUser: { id: string; email?: string } | null) => {
+      if (!authUser) {
+        setUser(null)
+        return
+      }
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, plan, credits, is_onboarded')
+        .eq('id', authUser.id)
+        .maybeSingle()
+
+      setUser({
+        id: authUser.id,
+        email: authUser.email ?? '',
+        fullName: data?.full_name ?? null,
+        plan: data?.plan ?? 'free',
+        credits: data?.credits ?? 0,
+        isOnboarded: Boolean(data?.is_onboarded),
+      })
+    },
+    [supabase]
+  )
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (session) {
-        // Fetch the user profile data from the profiles table
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          role: data?.role || 'user',
-          credits: data?.credits || 0
-        })
-      }
-      
-      setIsLoading(false)
-    }
+    let active = true
 
-    getSession()
+    supabase.auth.getUser().then(async ({ data: { user: authUser } }) => {
+      if (!active) return
+      await loadUser(authUser)
+      if (active) setIsLoading(false)
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // Fetch the user profile
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            setUser({
-              id: session.user.id,
-              email: session.user.email!,
-              role: data?.role || 'user',
-              credits: data?.credits || 0
-            })
-            
-            router.refresh()
-            
-            // If on the login page, redirect to dashboard
-            if (pathname === '/login' || pathname === '/signup' || pathname === '/') {
-              router.push('/dashboard')
-            }
-          })
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        loadUser(session?.user ?? null)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         router.refresh()
-        router.push('/login')
       }
     })
 
     return () => {
+      active = false
       subscription.unsubscribe()
     }
-  }, [supabase, router, pathname])
+  }, [supabase, router, loadUser])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
-  }
-
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({
-      password,
-    })
-    return { error }
-  }
-
-  const signUp = async (
-  email: string,
-  ): Promise<{ error: any }> => {
-    // Send the OTP (magic link) to the user’s email
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-    })
-    
-    if (otpError) return { error: otpError }
-
-    return { error: null }
-  };
-
-  const verifyOTP = async (
-  email: string,
-  fullName: string,
-  userType: string,
-  token: string
-  ): Promise<{ error: any }> => {
-    // Verify the OTP
-  const {
-    data: { session },
-    error: otpError,
-  } = await supabase.auth.verifyOtp({
-    email,
-    token,
-    type: 'email',
-  })
-
-  if (otpError) return { error: otpError }
-
-  // Step 2: Get the user ID from the session
-  const userId = session?.user?.id
-  if (!userId) return { error: 'No user found in session' }
-
-  // Step 3: Insert or update the user profile
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .upsert({
-      id: userId,
-      full_name: fullName,
-      user_type: userType,
-      is_onboarded: false,
-    })
-
-  return { error: profileError || null }
-  };
-
-  const reset = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      email,
-      {
-        redirectTo: `${window.location.origin}/callback/resetPassword`,
-      },
-    )
-    return { error }
-  }
-
-  const signOut = async () => {
-    await supabase.auth.signOut()
-  }
-
-  const sendMagicLink = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    return { error }
-  }
-
-  const value = {
+  const value: AuthContextType = {
     user,
     isLoading,
-    signIn,
-    updatePassword,
-    signUp,
-    verifyOTP,
-    reset,
-    signOut,
-    sendMagicLink,
-  }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    signIn: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      return { error }
+    },
+
+    // Sends a 6-digit code (and creates the account if it doesn't exist).
+    // The name / user type are stored as metadata and copied to the profile
+    // by the handle_new_user trigger.
+    signUp: async (email, fullName, userType) => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/callback/signup`,
+          data: { full_name: fullName, user_type: userType },
+        },
+      })
+      return { error }
+    },
+
+    resendCode: async (email) => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/callback/signup` },
+      })
+      return { error }
+    },
+
+    verifyOTP: async (email, token, profile) => {
+      const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+      if (error) return { error }
+
+      const userId = data.user?.id
+      if (!userId) return { error: { message: 'Verification failed. Please try again.' } }
+
+      // Existing accounts don't get new metadata applied, so set it directly
+      if (profile?.fullName || profile?.userType) {
+        await supabase
+          .from('profiles')
+          .update({
+            ...(profile.fullName ? { full_name: profile.fullName } : {}),
+            ...(profile.userType ? { user_type: profile.userType } : {}),
+          })
+          .eq('id', userId)
+      }
+
+      await loadUser(data.user)
+      return { error: null }
+    },
+
+    updatePassword: async (password) => {
+      const { error } = await supabase.auth.updateUser({ password })
+      return { error }
+    },
+
+    reset: async (email) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/callback/resetPassword`,
+      })
+      return { error }
+    },
+
+    signOut: async () => {
+      await supabase.auth.signOut()
+      setUser(null)
+      router.push('/login')
+      router.refresh()
+    },
+
+    refreshProfile: async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      await loadUser(authUser)
+    },
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

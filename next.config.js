@@ -1,24 +1,34 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: { 
-    unoptimized: true,
-    domains: ['images.pexels.com']
-  },
-  optimizeFonts: false,
-  experimental: {
-    optimizePackageImports: ['@/components/ui'],
-  },
-  swcMinify: false,
-  output: 'standalone',
-  webpack: (config) => {
-    config.infrastructureLogging = {
-      level: 'error',
-    };
-    return config;
-  }
-};
 
-module.exports = nextConfig;
+const supabaseHost = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '').host
+  } catch {
+    return ''
+  }
+})()
+
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+]
+
+const nextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
+  images: {
+    unoptimized: true,
+    remotePatterns: supabaseHost ? [{ protocol: 'https', hostname: supabaseHost }] : [],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
+  },
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }]
+  },
+}
+
+module.exports = nextConfig

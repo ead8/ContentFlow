@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getAnalyticsOverview } from '@/lib/services/analytics'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /** GET /api/analytics -> engagement overview for the current user */
 export async function GET() {
   try {

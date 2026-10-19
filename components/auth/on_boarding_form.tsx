@@ -159,8 +159,8 @@ export default function MultiStepProgress() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] w-full">
-        <div className="w-full bg-gray-200 h-4 mb-6 overflow-hidden">
+    <div className="min-h-screen bg-background w-full">
+        <div className="w-full bg-muted h-4 mb-6 overflow-hidden">
             <div
             className="h-full bg-[#32D77D] transition-all duration-500 rounded-r-full"
             style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}

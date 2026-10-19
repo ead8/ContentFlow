@@ -4,7 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -12,20 +11,20 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui"
 import { useAuth } from "../auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  rememberMe: z.boolean().optional(),
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
 
 const LoginForm = () =>{
     
-  const { signIn, sendMagicLink } = useAuth()
+  const { signIn } = useAuth()
+  const searchParams = useSearchParams()
   const {toast} = useToast()
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
@@ -59,7 +58,10 @@ const LoginForm = () =>{
         description: "You've successfully logged in",
       })
 
-      router.push("/dashboard")
+      // Only follow same-site relative redirects
+      const redirect = searchParams.get("redirect")
+      router.push(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard")
+      router.refresh()
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -130,6 +132,7 @@ const LoginForm = () =>{
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -146,24 +149,7 @@ const LoginForm = () =>{
 
           {/* Remember & Forgot */}
           <div className="flex items-center justify-between">
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2">
-                  <FormControl>
-                    <Checkbox
-                      id="rememberMe"
-                      checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(!!checked)}
-                    />
-                  </FormControl>
-                  <FormLabel htmlFor="rememberMe" className="text-sm font-normal text-muted-foreground cursor-pointer">
-                    Remember me
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
+            <span />
             <Link
               href="/resetPassword"
               className="text-sm text-accent hover:text-accent/80 transition-colors"

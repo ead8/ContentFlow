@@ -56,7 +56,8 @@ export default function UpdatePasswordForm() {
     setIsLoading(true)
     
     try {
-     await updatePassword(data.password)
+      const { error } = await updatePassword(data.password)
+      if (error) throw error
 
       toast({
         title: "Password updated",

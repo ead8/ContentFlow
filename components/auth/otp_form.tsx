@@ -27,12 +27,13 @@ export default function OTPVerificationForm() {
   const fullName = searchParams.get('fullName')
   const userType = searchParams.get('type')
 
-  const {verifyOTP} = useAuth()
+  const {verifyOTP, resendCode} = useAuth()
+  const [isResending, setIsResending] = useState(false)
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
   const { toast } = useToast()
-  const [timer, setTimer] = useState(15);
+  const [timer, setTimer] = useState(60);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,27 +51,37 @@ export default function OTPVerificationForm() {
   }, []);
 
 
+  const handleResend = async () => {
+    if (!email) return
+    setIsResending(true)
+    const { error } = await resendCode(email)
+    setIsResending(false)
+    if (error) {
+      toast({ title: "Could not resend code", description: error.message, variant: "destructive" })
+      return
+    }
+    setTimer(60)
+    toast({ title: "Code sent", description: `We sent a new code to ${email}.` })
+  }
+
   // Submission
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true)
-      const {error} = await verifyOTP(
-        email ?? "",
-        fullName ?? "",
-        userType ?? "",
-        data.otp
-      )
-      
-      if(error) {
+      const {error} = await verifyOTP(email ?? "", data.otp, {
+        fullName: fullName ?? undefined,
+        userType: userType ?? undefined,
+      })
+
+      if (error) {
         throw error
       }
 
       router.push('/setPassword')
-    } catch (error) {
-      setIsLoading(false)
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "An error occurred while verifying your OTP.",
+        title: "Verification failed",
+        description: error?.message || "That code is invalid or has expired.",
         variant: "destructive",
       })
     } finally {
@@ -130,9 +141,11 @@ export default function OTPVerificationForm() {
             ) : (
               <button
                 type="button"
-                className="text-accent hover:text-accent/80 font-medium transition-colors"
+                onClick={handleResend}
+                disabled={isResending || !email}
+                className="text-accent hover:text-accent/80 font-medium transition-colors disabled:opacity-50"
               >
-                Resend code
+                {isResending ? "Sending..." : "Resend code"}
               </button>
             )}
           </div>

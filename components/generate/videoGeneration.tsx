@@ -1,290 +1,106 @@
 'use client'
 
-import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useRef, useState } from 'react'
+import { Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Loader2, VideoIcon } from 'lucide-react'
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-  Form,
-  FormDescription,
-} from '@/components/ui/form'
-import { Card, CardContent, RadioGroup, RadioGroupItem } from '../ui'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { VideoGenerationStep, WizardFormData } from './MultiStep'
-import { generateMedia, pollVideoStatus } from '@/lib/n8n/client'
+import { uploadMedia, VIDEO_TYPES } from '@/lib/media/upload'
 import { useToast } from '@/hooks/use-toast'
-import FeedbackModal from '../feedback/feedback-modal'
 
-const videoFormSchema = z.object({
-  video_prompt: z.string().min(5, { message: 'Prompt must be at least 5 characters' }),
-  delivery_type: z.enum(['instant', 'email']),
-})
-
-type VideoFormData = z.infer<typeof videoFormSchema>
-
-interface VideoGenerationProps {
+interface VideoStepProps {
   data?: WizardFormData
-  setStepData: (stepData: VideoGenerationStep) => void
-  setNextStepValid: (isValid: boolean) => void
-  setBackStepValid: (isValid: boolean) => void;
+  setStepData: (stepData: VideoGenerationStep | undefined) => void
+  setBusy: (busy: boolean) => void
 }
 
-export default function VideoGeneration({
-  data,
-  setStepData,
-  setNextStepValid,
-  setBackStepValid
-}: VideoGenerationProps) {
+/**
+ * Optional video for the post (uploaded by the user). Platforms such as
+ * TikTok, Instagram Reels and YouTube Shorts need one.
+ */
+export default function VideoGeneration({ data, setStepData, setBusy }: VideoStepProps) {
   const { toast } = useToast()
+  const fileInput = useRef<HTMLInputElement>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(data?.step_3?.video_url || null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
-  const [isWaiting, setIsWaiting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
-  // Video generation is not billed from the credit wallet (the server has no
-  // video spend_credits call), so it is never blocked on credits here.
-  
-  const videoForm = useForm<VideoFormData>({
-    resolver: zodResolver(videoFormSchema),
-    defaultValues: {
-      video_prompt: data?.step_3?.video_prompt || '',
-      delivery_type: 'instant'
-    },
-  })
+  const videoPlatforms = (data?.platform || []).filter((p) => p === 'Tiktok' || p === 'YouTube_Shorts')
+  const suggestion = Object.values(data?.step_1?.platform_posts || {}).find((p) => p.video_suggestion)?.video_suggestion
 
-  const deliveryType = useWatch({
-    control: videoForm.control,
-    name: "delivery_type",
-  })
-
-  const handleOnSubmit = async (formData: VideoFormData) => {
-    if(formData.delivery_type === "email") {
-      handleGenerateWithEmail(formData)
-    } else {
-      handleGenerate(formData)
-    }
-  }
-
-  const handleGenerate = async (formData: VideoFormData) => {
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return
+    setIsUploading(true)
+    setBusy(true)
     try {
-      setIsWaiting(true)
-      setIsGenerating(true);
-      setBackStepValid(false);
-  
-      /* 1️⃣ request generation */
-      const result = await generateMedia({
-        prompt: formData.video_prompt.replace(/\n/g, ' '),
-        media_type: "video",
-        cron_job: false
-      });
-  
-      toast({
-        title: "Video queued ⏳",
-        description: "We’re processing your video. This usually takes a minute.",
-      });
-  
-      /* 2️⃣ poll until ready */
-      const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
-  
-      setVideoUrl(finalUrl);
-      setStepData({
-        video_prompt: formData.video_prompt,
-        video_url: finalUrl
-      });
-  
-      setNextStepValid(true);
-  
-      toast({
-        title: "Success! ✨",
-        description: "Your video is ready.",
-      });
-  
-    } catch (err: any) {
-      console.error("Video Pulling Error",err);
-      setOpenFeedbackModal(true);
-  
+      const url = await uploadMedia(file, 'video')
+      setVideoUrl(url)
+      setStepData({ video_url: url })
+      toast({ title: 'Video uploaded' })
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Upload failed', description: error.message })
     } finally {
-      setIsGenerating(false);
-      setBackStepValid(true);
-      setNextStepValid(true);
-    }
-  };
-
-  const handleGenerateWithEmail = async (formData: VideoFormData) => {
-    try {
-      setIsWaiting(false)
-      setIsGenerating(true);
-      setBackStepValid(false);
-  
-      /* 1️⃣ request generation */
-      const result = await generateMedia({
-        prompt: formData.video_prompt.replace(/\n/g, ' '),
-        media_type: "video",
-        cron_job: true
-      });
-  
-      setStepData({
-        video_prompt: formData.video_prompt,
-        job_id: result.jobId,
-        media_id: result.mediaId,
-        isEmailNotify: true
-      });
-  
-      setNextStepValid(true);
-  
-      toast({
-        title: "Video Request Received 📩",
-        description: "We’re generating your video. You’ll receive an email once it’s ready.",
-      })
-  
-    } catch (err: any) {
-      console.error("Video Generation Error",err);
-      setOpenFeedbackModal(true);
-  
-    } finally {
-      setIsGenerating(false);
-      setBackStepValid(true);
-      setNextStepValid(true);
+      setIsUploading(false)
+      setBusy(false)
+      if (fileInput.current) fileInput.current.value = ''
     }
   }
 
   return (
     <Card>
       <CardContent className="pt-6 space-y-6">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <VideoIcon className="w-5 h-5 text-primary" />
-          Video Generation
-        </h2>
-
-        <Form {...videoForm}>
-          <form
-            onSubmit={videoForm.handleSubmit(handleOnSubmit)}
-            className="space-y-6 flex flex-col"
-          >
-            <FormField
-              control={videoForm.control}
-              name="video_prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Video Prompt</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Tell us what your video should look like… 🎥"
-                      className="min-h-[120px] resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* Delivery Type Selector */}
-            <FormField
-              control={videoForm.control}
-              name="delivery_type"
-              render={({ field }) => {
-                return (
-                  <FormItem>
-                    <FormLabel>Choose how you&apos;d like to receive your video</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="pt-2 flex gap-4"
-                      >
-                        <FormItem>
-                          <div className="flex items-center space-x-2">
-                            <FormControl>
-                              <RadioGroupItem value="instant" />
-                            </FormControl>
-                            <FormLabel className="font-normal">I&apos;ll wait here while the video is being generated</FormLabel>
-                          </div>
-                        </FormItem>
-                        <FormItem>
-                          <div className="flex items-center space-x-2">
-                            <FormControl>
-                              <RadioGroupItem value="email" />
-                            </FormControl>
-                            <FormLabel className="font-normal">Notify me via email when it&apos;s ready</FormLabel>
-                          </div>
-                        </FormItem>
-                      </RadioGroup>
-                    </FormControl>
-                    {deliveryType === "instant" && (
-                      <p className="text-sm text-muted-foreground pt-4">
-                        Stay on this page while we generate your video. It may take a few minutes to generate
-                      </p>
-                    )}
-                    {deliveryType === "email" && (
-                      <p className="text-sm text-muted-foreground pt-4">
-                        We&apos;ll generate your video in the background and notify you by email once it&apos;s ready.
-                      </p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )
-              }
-              }
-            />
-
-
-            <Button
-              type="submit"
-              disabled={isGenerating}
-              className="self-end transition-all duration-200"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                'Generate Video'
-              )}
-            </Button>
-          </form>
-        </Form>
-        {/* Video Preview Box */}
-        {isWaiting && (videoUrl || isGenerating) && (
-          <div className="pt-4">
-            <p className="block mb-2 text-sm font-medium text-muted-foreground">
-              Preview
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>Attach a video to your post. This step is optional. Press Skip to continue without one.</p>
+          {videoPlatforms.length > 0 && (
+            <p className="text-foreground">
+              TikTok and YouTube Shorts posts need a video. Upload one here or add it when you publish.
             </p>
-            <div className="w-full max-w-2xl aspect-video rounded-xl border border-muted-foreground/10 shadow-lg overflow-hidden bg-muted relative">
-              {isGenerating ? (
-                <div className="flex flex-col items-center justify-center gap-3 w-full h-full animate-pulse">
-                  <div className="w-12 h-12 rounded-full bg-muted-foreground/20 animate-spin border-2 border-muted-foreground/30 border-t-transparent" />
-                  <span className="text-sm text-muted-foreground">
-                    Generating your video...
-                  </span>
-                </div>
-              ) : (
-                <video
-                  controls
-                  src={videoUrl ?? undefined}
-                  className="w-full h-full object-cover"
-                />
-              )}
+          )}
+          {suggestion && (
+            <p>
+              <span className="font-medium text-foreground">Video idea: </span>
+              {suggestion}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="video-file">Video file (MP4, MOV or WebM, up to 50 MB)</Label>
+          <input
+            id="video-file"
+            ref={fileInput}
+            type="file"
+            accept={VIDEO_TYPES.join(',')}
+            disabled={isUploading}
+            onChange={(e) => handleFile(e.target.files?.[0])}
+            className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-primary-foreground hover:file:bg-primary/90"
+          />
+          {isUploading && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Uploading... large videos can take a minute.
+            </p>
+          )}
+        </div>
+
+        {videoUrl && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Selected video</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setVideoUrl(null)
+                  setStepData(undefined)
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Remove
+              </Button>
             </div>
+            <video controls src={videoUrl} className="w-full max-w-2xl rounded-xl border" />
           </div>
         )}
       </CardContent>
-      {
-        openFeedbackModal && (
-          <FeedbackModal
-          open={openFeedbackModal}
-          onClose={() => setOpenFeedbackModal(false)}
-          source='error_feedback'
-          />
-        )
-      }
     </Card>
   )
 }

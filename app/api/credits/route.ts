@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCreditBalance, getCreditTransactions } from '@/lib/services/credits'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/credits                     -> balance and plan
  * GET /api/credits?type=transactions   -> transaction history

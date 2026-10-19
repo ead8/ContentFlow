@@ -2,6 +2,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui";
 import { BrainCircuit } from "lucide-react";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from '@/lib/site'
 
 // app/privacy-policy/page.tsx
 export default function PrivacyPolicyPage() {
@@ -11,7 +12,7 @@ export default function PrivacyPolicyPage() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-xl">
             <BrainCircuit className="h-6 w-6 text-primary" />
-            <span>Intuity Sync</span>
+            <span>ContentFlow</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -171,7 +172,7 @@ export default function PrivacyPolicyPage() {
             <p>
             To access, update, or delete your information—or to unsubscribe—contact us at:
             </p>
-            <p className="font-medium text-primary">📧 Griffin@intuityai.com</p>
+            {SUPPORT_EMAIL && <p className="font-medium text-primary"><a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>}
 
             <h2 className="text-2xl font-semibold text-gray-900">Children’s Privacy</h2>
             <p>
@@ -188,14 +189,14 @@ export default function PrivacyPolicyPage() {
             <p>
             If you have any questions about this Privacy Policy or our practices, contact us at:
             </p>
-            <p className="font-medium text-primary">📧 Griffin@intuityai.com</p>
+            {SUPPORT_EMAIL && <p className="font-medium text-primary"><a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>}
         </section>
       </main>
         
       <footer className="border-t py-6 md:py-0">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 md:h-16">
           <p className="text-sm text-muted-foreground">
-            © 2025 Intuity Sync. All rights reserved.
+            © {new Date().getFullYear()} ContentFlow. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">

@@ -16,8 +16,18 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'ContentFlow - AI Social Media Content Creation & Scheduling',
-  description: 'Create, schedule, and manage social media content across all platforms with powerful AI assistance',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  title: {
+    default: 'ContentFlow - AI social media content creation and scheduling',
+    template: '%s | ContentFlow',
+  },
+  description:
+    'Turn one idea into platform-ready posts for LinkedIn, Instagram, X, Facebook, TikTok and YouTube Shorts, then plan and track them in one place.',
+  openGraph: {
+    title: 'ContentFlow',
+    description: 'AI social media content creation and scheduling',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({

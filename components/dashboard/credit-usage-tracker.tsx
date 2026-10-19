@@ -1,106 +1,75 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { format } from "date-fns"
+import { ArrowRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, FileText, Image as LucideImage, Info, RefreshCcw, Video } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
-import { CREDIT_COSTS } from "@/lib/billing/plans"
-import { creditBarClass } from "@/components/credit/credits-badge"
-import { formatRefreshDate, percentRemaining, useCreditSummary } from "@/hooks/use-credit-summary"
+import { fetchCreditUsage, type CreditUsageSummary } from "@/lib/api/client"
 
 export function CreditUsageTracker() {
-  const { summary, isLoading, refresh } = useCreditSummary()
+  const [usage, setUsage] = useState<CreditUsageSummary | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const percentLeft = summary ? percentRemaining(summary) : 0
-  const nextRefresh = summary ? formatRefreshDate(summary.next_refresh_at) : null
-  const kinds = summary
-    ? [
-        { key: "text", label: "Post generation", icon: FileText, value: summary.used_by_kind?.text ?? 0 },
-        { key: "image", label: "Images", icon: LucideImage, value: summary.used_by_kind?.image ?? 0 },
-        { key: "video", label: "Videos", icon: Video, value: summary.used_by_kind?.video ?? 0 },
-      ].filter((k) => k.key !== "video" || k.value > 0)
-    : []
+  useEffect(() => {
+    fetchCreditUsage()
+      .then(setUsage)
+      .catch((e) => setError(e.message))
+  }, [])
+
+  const remainingPct = usage
+    ? Math.min(100, Math.round((usage.credits / Math.max(usage.monthly_allowance, 1)) * 100))
+    : 0
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-1">
-          Credit Usage
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="How credits work" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[240px]">
-                <p>
-                  One monthly credit allowance covers all AI features: {CREDIT_COSTS.text} credits per post
-                  generation, {CREDIT_COSTS.image} per image.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </CardTitle>
+        <CardTitle>Credits</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {isLoading && !summary ? (
-          <div className="flex items-center justify-center py-4">
-            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+      <CardContent className="space-y-4">
+        {error ? (
+          <p className="text-sm text-muted-foreground">Unable to load credits: {error}</p>
+        ) : !usage ? (
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-        ) : summary ? (
+        ) : (
           <>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm items-center">
-                <span className="font-medium">{summary.plan_name}</span>
-                <span className="text-muted-foreground">
-                  <span className="font-semibold text-foreground">{summary.credits.toLocaleString()}</span>
-                  {" "}/ {summary.monthly_allowance.toLocaleString()} left
+            <div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold">{usage.credits.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">
+                  of {usage.monthly_allowance.toLocaleString()} / month
                 </span>
               </div>
-              <Progress
-                value={percentLeft}
-                className={cn("h-2", creditBarClass(percentLeft))}
-                aria-label={`${summary.credits.toLocaleString()} of ${summary.monthly_allowance.toLocaleString()} monthly credits left`}
-              />
-              {nextRefresh && (
-                <p className="text-xs text-muted-foreground">Refreshes on {nextRefresh}</p>
-              )}
+              <Progress value={remainingPct} className="mt-2 h-2" aria-label="Credits remaining" />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Used this period: {summary.used_this_period.toLocaleString()} credits
-              </p>
-              <ul className="space-y-1.5">
-                {kinds.map(({ key, label, icon: Icon, value }) => (
-                  <li key={key} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      {label}
-                    </span>
-                    <span className="font-medium">{value.toLocaleString()}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <dl className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-md border p-2">
+                <dt className="text-muted-foreground">Text this period</dt>
+                <dd className="font-medium">{usage.used_by_kind.text}</dd>
+              </div>
+              <div className="rounded-md border p-2">
+                <dt className="text-muted-foreground">Images this period</dt>
+                <dd className="font-medium">{usage.used_by_kind.image}</dd>
+              </div>
+            </dl>
+
+            <p className="text-xs text-muted-foreground">
+              {usage.plan_name} plan · {usage.plan === "free" ? "Tops up" : "Renews"} around{" "}
+              {format(new Date(usage.next_refresh_at), "MMM d")}
+            </p>
 
             <Button asChild className="w-full" variant="outline">
-              <Link href="/settings#billing">
-                Upgrade Plan
-                <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
+              <Link href="/billing">
+                {usage.plan === "free" ? "Upgrade plan" : "Manage plan"}
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-center text-muted-foreground py-4">
-            Unable to load credit information
-            <Button variant="ghost" size="sm" onClick={() => refresh()}>
-              <RefreshCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-              Retry
-            </Button>
-          </div>
         )}
       </CardContent>
     </Card>

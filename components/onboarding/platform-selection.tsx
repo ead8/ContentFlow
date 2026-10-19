@@ -5,7 +5,7 @@ import OnboardingTitle from "./onboarding-title"
 interface Platform {
   id: string
   name: string
-  logo: string
+  logo?: string
 }
 
 interface PlatformSelectorProps {
@@ -13,12 +13,14 @@ interface PlatformSelectorProps {
   setSelected: (val: string[]) => void
 }
 
+// ids match lib/platforms.ts so preferences line up with the content wizard
 const platforms: Platform[] = [
-  { id: "instagram", name: "Instagram", logo: "/images/icons/instagram.svg" },
-  { id: "youtube", name: "Youtube", logo: "/images/icons/youtube.svg" },
-  { id: "linkedin", name: "Linkedin", logo: "/images/icons/linkedin.svg" },
-  { id: "facebook", name: "Facebook", logo: "/images/icons/facebook.svg" },
-  { id: "x", name: "X", logo: "/images/icons/x.svg" },
+  { id: "LinkedIn", name: "LinkedIn", logo: "/images/icons/linkedin.svg" },
+  { id: "Instagram", name: "Instagram", logo: "/images/icons/instagram.svg" },
+  { id: "X-Twitter", name: "X (Twitter)", logo: "/images/icons/x.svg" },
+  { id: "Facebook", name: "Facebook", logo: "/images/icons/facebook.svg" },
+  { id: "Tiktok", name: "TikTok" },
+  { id: "YouTube_Shorts", name: "YouTube Shorts", logo: "/images/icons/youtube.svg" },
 ]
 
 export default function PlatformSelector({ selected, setSelected }: PlatformSelectorProps) {
@@ -36,19 +38,26 @@ export default function PlatformSelector({ selected, setSelected }: PlatformSele
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8">
         {platforms.map((platform) => {
-          const isSelected = selected.includes(platform.name)
+          const isSelected = selected.includes(platform.id)
           return (
             <div key={platform.id} className="relative">
               <button
-                onClick={() => togglePlatform(platform.name)}
+                onClick={() => togglePlatform(platform.id)}
                 className={`w-full h-full flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
-                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                  isSelected ? "border-blue-500 bg-blue-500/10" : "border-border hover:border-muted-foreground"
                 }`}
                 type="button"
                 aria-pressed={isSelected}
               >
                 <div className="w-16 h-16 mb-4 flex items-center justify-center">
-                  <img src={platform.logo} alt={platform.name} className="w-10 h-10 mb-2" />
+                  {platform.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={platform.logo} alt="" className="w-10 h-10 mb-2" />
+                  ) : (
+                    <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-lg font-bold text-background">
+                      {platform.name.charAt(0)}
+                    </span>
+                  )}
                 </div>
                 <span className="text-lg font-medium">{platform.name}</span>
               </button>

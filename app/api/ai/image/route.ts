@@ -6,6 +6,8 @@ import { requireUserId } from '@/lib/services/auth'
 import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 // Image providers can take a while
 export const maxDuration = 60
 

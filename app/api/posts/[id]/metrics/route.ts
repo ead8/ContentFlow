@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPost, recordMetrics } from '@/lib/services/content-posts'
 import { apiError, ValidationError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/posts/:id/metrics -> save the latest engagement numbers
  * Body: { platform: string, metrics: { impressions?, likes?, comments?, shares?, clicks? } }

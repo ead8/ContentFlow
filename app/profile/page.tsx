@@ -1,113 +1,101 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2, Mail, Coins, CalendarDays, LogOut, User as UserIcon } from "lucide-react"
+import Link from "next/link"
+import { format } from "date-fns"
+import { Coins, Loader2, Mail, CalendarDays, Briefcase } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase/client"
-
-async function api<T>(path: string): Promise<T> {
-  const res = await fetch(path)
-  const body = await res.json().catch(() => null)
-  if (!res.ok || body?.success === false) {
-    throw new Error(body?.error || `Request failed (${res.status})`)
-  }
-  return body.data as T
-}
-
-interface ProfileState {
-  email: string
-  name: string
-  role: string
-  credits: number
-  memberSince: string
-}
+import { Badge } from "@/components/ui/badge"
+import { fetchLoggedinUserProfile } from "@/lib/api/supabase"
+import { fetchAccountSummary, type AccountSummaryData } from "@/lib/api/client"
+import type { UserProfile } from "@/models/user"
+import { getPlan } from "@/lib/billing/plans"
+import { platformLabel } from "@/lib/platforms"
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [profile, setProfile] = useState<ProfileState | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [account, setAccount] = useState<AccountSummaryData | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user?.email) throw new Error("Not signed in")
-        const [account, wallet] = await Promise.all([
-          api<{ teamMembers: { name: string; role: string }[] }>("/api/dashboard/account"),
-          api<{ credits: number }>("/api/credits"),
-        ])
-        const member = account.teamMembers?.[0]
-        setProfile({
-          email: user.email,
-          name: member?.name || user.email.split("@")[0],
-          role: member?.role || "Member",
-          credits: wallet.credits ?? 0,
-          memberSince: user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "—",
-        })
-      } catch (e: any) {
-        toast({ variant: "destructive", title: "Could not load profile", description: e.message })
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [toast])
+    Promise.all([fetchLoggedinUserProfile(), fetchAccountSummary()])
+      .then(([p, a]) => {
+        setProfile(p)
+        setAccount(a)
+      })
+      .catch((e) => setError(e.message))
+  }, [])
 
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/login")
+  if (error) return <p className="text-destructive">Could not load profile: {error}</p>
+  if (!profile || !account) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-  }
-
-  if (!profile) {
-    return <div className="text-center py-20 text-muted-foreground">Could not load your profile.</div>
-  }
-
-  const initials = profile.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+  const plan = getPlan(profile.plan)
 
   return (
-    <main className="mx-auto max-w-2xl py-8 px-4 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <h1 className="text-2xl font-bold">Profile</h1>
+
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold">
-            {initials || <UserIcon className="h-8 w-8" />}
+        <CardContent className="flex items-center gap-4 pt-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-2xl font-semibold text-accent-foreground">
+            {account.initials}
           </div>
-          <div>
-            <CardTitle>{profile.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">{profile.role}</p>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold">{profile.full_name || account.name}</p>
+            <p className="text-sm text-muted-foreground">{profile.user_type || "Member"}</p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <span>{profile.email}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Coins className="h-4 w-4 text-muted-foreground" />
-            <span>{profile.credits} credits available</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <span>Member since {profile.memberSince}</span>
-          </div>
-          <div className="pt-4 border-t flex gap-2">
-            <Button variant="outline" onClick={() => router.push("/settings")}>Edit settings</Button>
-            <Button variant="destructive" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" /> Sign out
-            </Button>
-          </div>
+          <Button asChild variant="outline" className="ml-auto">
+            <Link href="/settings">Edit</Link>
+          </Button>
         </CardContent>
       </Card>
-    </main>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Account details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" />{profile.email}</p>
+          <p className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            Member since {format(new Date(profile.created_at), "MMMM yyyy")}
+          </p>
+          <p className="flex items-center gap-2">
+            <Coins className="h-4 w-4 text-muted-foreground" />
+            {profile.credits.toLocaleString()} credits · {plan.name} plan
+            <Link href="/billing" className="text-primary underline-offset-4 hover:underline">Manage</Link>
+          </p>
+          {account.businessType && (
+            <p className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground" />{account.businessType}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Content preferences</CardTitle>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/onboarding">{profile.is_onboarded ? "Update" : "Set up"}</Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {account.niche && <p><span className="font-medium">Niche:</span> {account.niche}</p>}
+          {account.platforms.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {account.platforms.map((p) => <Badge key={p} variant="secondary">{platformLabel(p)}</Badge>)}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No preferences saved yet.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

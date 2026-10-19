@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getCreditBalance } from '@/lib/services/credits'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Credit balance plus what was spent this month, for the dashboard widget.
  */

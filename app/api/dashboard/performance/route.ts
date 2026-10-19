@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUserId } from '@/lib/services/auth'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Recent posts with per-post engagement, for the Post Performance widget.
  */
@@ -13,7 +15,7 @@ export async function GET() {
 
     const { data: posts, error } = await supabase
       .from('content_posts')
-      .select('id, title, content, status, media_urls, platforms, scheduled_for, created_at')
+      .select('id, title, content, status, media_urls, platforms, scheduled_for, published_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5)
@@ -46,7 +48,7 @@ export async function GET() {
       title: p.title || p.content.slice(0, 60),
       status: p.status === 'published' ? 'posted' : p.status,
       platforms: p.platforms || [],
-      date: p.scheduled_for || p.created_at,
+      date: p.published_at || p.scheduled_for || p.created_at,
       engagement: engagementByPost.get(p.id),
     }))
 

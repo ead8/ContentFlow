@@ -1,12 +1,14 @@
-"use client"
+import { Suspense } from "react"
 import PostDetail from "@/components/posts/post-detail"
 
-const PostDetailPage = ({ params }: { params: { id: string } }) => {
+export const metadata = { title: "Post" }
+
+export default function PostDetailPage({ params }: { params: { id: string } }) {
   return (
-    <main className="flex min-h-screen flex-col p-4 sm:p-8">
-      <PostDetail postId={params.id} />
-    </main>
+    <div className="mx-auto w-full max-w-5xl">
+      <Suspense>
+        <PostDetail postId={params.id} />
+      </Suspense>
+    </div>
   )
 }
-
-export default PostDetailPage

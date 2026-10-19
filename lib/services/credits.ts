@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { CREDIT_COSTS, CreditKind, getPlan } from '@/lib/billing/plans'
+import { requireUserId } from './auth'
 
 export interface CreditBalance {
   credits: number
@@ -34,6 +35,7 @@ function toAppError(error: { message?: string; code?: string }): Error {
  * Current user's balance and plan. Applies the free plan's monthly top-up.
  */
 export async function getCreditBalance(): Promise<CreditBalance> {
+  await requireUserId()
   const supabase = createClient()
   const { data, error } = await supabase.rpc('get_my_credits').single()
 
@@ -73,6 +75,7 @@ export async function spendCredits(kind: CreditKind, description: string): Promi
  * Credit transaction history for the current user (newest first).
  */
 export async function getCreditTransactions(limit = 50): Promise<CreditTransaction[]> {
+  await requireUserId()
   const supabase = createClient()
   const { data, error } = await supabase
     .from('credit_transactions')

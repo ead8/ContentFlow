@@ -5,6 +5,8 @@ import { requireUserId } from '@/lib/services/auth'
 import { apiError } from '@/lib/api/error'
 import { PLATFORMS, TONES } from '@/lib/platforms'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Generate platform-tailored social content with AI.
  * Body: { platform: string[], prompt: string, tone: string, audience?: string }

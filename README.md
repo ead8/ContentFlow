@@ -1,79 +1,43 @@
 # ContentFlow
 
-AI-powered social media content creation, scheduling, auto-publishing and
-analytics. Built with Next.js 14, TypeScript, Tailwind CSS, Supabase and
+AI-assisted social media content creation. Describe an idea once, get
+platform-tailored posts for LinkedIn, Instagram, X, Facebook, TikTok and
+YouTube Shorts, add AI-generated or uploaded media, schedule it on a content
+calendar, and track how each post performs.
+
+Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, Supabase
+(Postgres, Auth, Storage) and any OpenAI-compatible AI provider. Billing via
 Stripe.
 
-## Prerequisites
+## What the product does (and doesn't)
 
-- Node.js 18+
-- A Supabase project (free tier works) and the [Supabase CLI](https://supabase.com/docs/guides/cli)
-- An OpenAI-compatible AI API key (OpenAI, OpenRouter, ...)
-- Optional: developer apps for each social platform you want to publish to,
-  a Stripe account (paid plans) and a Resend account (email notifications)
+| Feature | How it works |
+|---|---|
+| Sign up / sign in | Email + 6-digit code, then a password. Password reset by email. |
+| AI copy | One prompt → a version per platform, editable, with live character limits. 10 credits. |
+| AI images | Generated, then copied into the user's storage folder (provider URLs expire). 25 credits. |
+| Media | Upload images (≤10 MB) and videos (≤50 MB); media library with delete. |
+| Scheduling | Save drafts or schedule a date/time; due posts show in the in-app notification bell. |
+| Publishing | **Automatic** for platforms the user has connected in Settings (LinkedIn, Facebook Pages, Instagram, X, TikTok, YouTube): scheduled posts are published by a background job, with per-platform status, retries and failure alerts; *Publish now* / *Retry* on the post page. Platforms without a connected account fall back to *Copy* + *Open {platform}* + *Mark as published*. Each platform needs its developer app (see below). |
+| Analytics | Synced automatically every 6 hours from each platform's API for auto-published posts; numbers can also be entered by hand on any published post. |
+| Email | Publish failures and expired accounts are emailed via Resend or any SMTP server (`EMAIL_PROVIDER`). Auth emails go through Supabase Auth's SMTP settings. |
+| Credits & plans | Free plan: 100 credits/month (auto top-up). Paid plans via Stripe Checkout; renewals reset the monthly allowance. |
+| Account | Profile, password change, account deletion (cancels Stripe subscription, removes data and media). |
 
-## Setup
+## Local development
 
-1. Install dependencies:
+Prerequisites: Node.js 18+, Docker (for the local Supabase stack).
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npx supabase start          # Postgres, Auth, Storage, Mailpit on 5432x ports
+npx supabase status -o env  # copy API_URL / ANON_KEY / SERVICE_ROLE_KEY
+cp .env.example .env.local  # fill in Supabase + AI values
+npm run dev
+```
 
-2. Copy the environment template and fill in your values (every variable is
-   documented in [`.env.example`](.env.example)):
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   | Variable | Required | Where to find it |
-   |---|---|---|
-   | `NEXT_PUBLIC_APP_URL` | yes | Public URL of the app, no trailing slash (`http://localhost:3000` locally) |
-   | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Supabase → Project Settings → API |
-   | `SUPABASE_SERVICE_ROLE_KEY` | yes | Supabase → Project Settings → API (server only) |
-   | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_*_MODEL` | yes | Your AI provider |
-   | `TOKEN_ENCRYPTION_KEY` | for publishing | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-   | `CRON_SECRET` | for publishing | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-   | `LINKEDIN_*`, `META_*`, `X_*`, `TIKTOK_*`, `GOOGLE_*` | per platform | See [Connecting social platforms](#connecting-social-platforms) |
-   | `RESEND_API_KEY`, `EMAIL_FROM` | optional | [resend.com](https://resend.com) (verify the sender domain) |
-   | `STRIPE_*` | for billing | See [Billing (Stripe)](#billing-stripe). `STRIPE_SECRET_KEY` (server only) is also required for account deletion once billing is live |
-
-   Without `RESEND_API_KEY`, email is skipped and users only get in-app
-   notifications (publish failures, expired accounts, posts that need manual
-   publishing). `EMAIL_FROM` must be on a Resend-verified domain (otherwise
-   Resend's `onboarding@resend.dev` test sender is used).
-
-   `TOKEN_ENCRYPTION_KEY` encrypts social OAuth tokens at rest. Keep it stable:
-   changing it makes stored tokens unreadable and users have to reconnect.
-
-3. Apply the database migrations:
-
-   ```bash
-   supabase link --project-ref <your-project-ref>
-   supabase db push
-   ```
-
-   (or run `supabase/migrations/*.sql` in the SQL editor, in filename order).
-   Besides the core tables (`profiles`, `content_posts`, `social_accounts`,
-   `post_targets`, `post_analytics`, `calendar_events`, `credit_transactions`,
-   ...), the recent migrations add:
-
-   - `20261019000000_hardening_billing_media.sql` — plans and credits
-     (`apply_plan`, `spend_credits`), multi-platform posts, `media` storage bucket
-   - `20261019100000_auto_publishing.sql` — encrypted social tokens, publishing
-     state and retries (`claim_due_posts`), `notifications`
-   - `20261019100200_stripe_events.sql` — Stripe webhook idempotency
-
-4. Run the dev server:
-
-   ```bash
-   npm run dev
-   ```
-
-5. To publish automatically, also set up [background jobs](#background-jobs).
-   Without them, scheduled posts stay scheduled (users can still use
-   "Publish now").
+Sign-up emails (with the 6-digit code) are caught by Mailpit at
+http://127.0.0.1:54324.
 
 ## Connecting social platforms
 
@@ -244,96 +208,81 @@ timeout 300 s). Manual test:
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/publish
 ```
 
-## Billing (Stripe)
-
-Plans and monthly credit allowances are defined in `lib/billing/plans.ts`
-(kept in sync with `plan_monthly_credits()` in SQL). Checkout, the customer
-portal and the webhook are Supabase Edge Functions in `supabase/functions/`.
-
-1. In Stripe, create one product per paid plan (Creator Pro, Growth Studio,
-   Agency Elite, Enterprise) with a **recurring monthly price**.
-2. Configure the customer portal (Settings → Billing → Customer portal):
-   allow cancellation, payment method updates and switching between the four
-   prices.
-3. Set the secrets and deploy the functions:
-
-   ```bash
-   supabase secrets set STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_... \
-     APP_URL=https://app.example.com \
-     STRIPE_PRICE_CREATOR=price_... STRIPE_PRICE_GROWTH=price_... \
-     STRIPE_PRICE_AGENCY=price_... STRIPE_PRICE_ENTERPRISE=price_...
-   supabase functions deploy stripe-checkout
-   supabase functions deploy stripe-portal
-   supabase functions deploy stripe-webhook --no-verify-jwt
-   ```
-
-   Set the same `STRIPE_PRICE_*` and `STRIPE_SECRET_KEY` in the Next.js env.
-   `STRIPE_SECRET_KEY` is **required** there for account deletion
-   (`DELETE /api/account` cancels the user's subscriptions immediately); without
-   it, users who have a Stripe customer cannot delete their account. It also
-   lets `GET /api/credits/plans` show live prices.
-4. Add a webhook endpoint `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`
-   for the events `checkout.session.completed`, `invoice.paid`,
-   `customer.subscription.created`, `customer.subscription.updated`,
-   `customer.subscription.deleted`, and put its signing secret in
-   `STRIPE_WEBHOOK_SECRET`.
-
-How it works: a paid invoice for a new period (`subscription_create` /
-`subscription_cycle`) resets the balance to the plan's monthly allowance;
-upgrades take effect immediately; a canceled or unpaid subscription drops the
-user to Free. Every event id is stored in `processed_stripe_events`, so
-redelivered events never add credits twice. Users are matched by the Stripe
-customer created at checkout (`client_reference_id` / customer metadata),
-never by email. The test plan is in [docs/stripe-testing.md](docs/stripe-testing.md).
-
 ## Scripts
 
 | Script | Purpose |
 |---|---|
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build (runs type checking) |
+| `npm run dev` | Dev server |
+| `npm run build` / `npm start` | Production build / server (build fails on type or lint errors) |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run test:e2e` | End-to-end suite against a running app + **local** Supabase (refuses to run against a remote project). Set `SKIP_AI=1` to skip AI calls. |
 
-## API routes
+The E2E suite covers sign-up via emailed code, every API route, credits,
+billing plan application, monthly top-ups, account deletion, and attacks that
+must fail (self-granting credits/plans, forging transactions, cross-user
+access, cross-folder uploads, the CVE-2025-29927 middleware bypass header).
 
-Routes return `{ success, data }` / `{ success: false, error }` and require a
-signed-in session unless noted.
+## Deploying to production
 
-- `GET/POST /api/posts` — list / create posts
-- `GET/PATCH/DELETE /api/posts/[id]` — read / update / delete a post
-- `POST /api/posts/[id]/publish` — `{ mode: 'auto', platforms? }` publishes
-  now through connected accounts (also used to retry); `{ platforms: [{ platform, url? }] }`
-  marks platforms as published manually
-- `POST /api/posts/[id]/metrics` — record engagement numbers manually
-- `GET/PATCH/DELETE /api/social-accounts` — list connected accounts and
-  configured platforms / set the default account / disconnect
-- `DELETE /api/account` — `{ confirm: "DELETE" }` permanently deletes the
-  account: cancels Stripe subscriptions, deletes media files and the auth user
-  (cascades all rows), signs out
-- `POST /api/social/meta/data-deletion` — Meta data deletion callback
-  (`signed_request`, no session); status page `/data-deletion?code=...`
-- `GET /api/social/[slug]/connect?returnTo=/settings` — start OAuth (redirect)
-- `GET /api/social/[slug]/callback` — OAuth callback (redirects back to `returnTo`)
-- `GET/POST /api/notifications` — list / mark read
-- `GET /api/analytics` — engagement metrics
-- `GET /api/credits` — balance and plan; `?type=transactions` for history
-- `GET /api/credits/plans` — plans with live Stripe prices and the current plan
-- `GET/POST/PUT/DELETE /api/calendar` — scheduled events
-- `POST /api/ai/generate`, `POST /api/ai/image` — AI generation (spends credits)
-- `GET /api/dashboard/{account,credits,performance,stats}` — dashboard data
-- `POST /api/feedback` — send feedback
-- `GET|POST /api/cron/publish`, `GET|POST /api/cron/sync-analytics` — background
-  jobs (`Authorization: Bearer $CRON_SECRET`, no session)
+1. **Supabase project**
+   - Apply migrations: `npx supabase link --project-ref <ref>` then
+     `npx supabase db push`.
+   - Auth → URL configuration: set Site URL to your domain and add
+     `https://<domain>/**` to redirect URLs.
+   - Auth → Email templates: the sign-up screen asks for a **6-digit code**,
+     so the *Confirm signup* and *Magic link* templates must include
+     `{{ .Token }}` (Supabase's defaults contain only a link). Copy
+     `supabase/templates/*.html`.
+   - Configure a real SMTP provider (Supabase's built-in sender is heavily
+     rate-limited).
+2. **AI provider:** set `AI_PROVIDER=openai` (or `openrouter`) and
+   `OPENAI_API_KEY`. The keyless `pollinations` preset is for demos only.
+3. **Email:** set `EMAIL_PROVIDER` + Resend or SMTP credentials and
+   `EMAIL_FROM` on a verified domain; configure the same SMTP server in
+   Supabase (Authentication → SMTP) for sign-up and password emails.
+4. **Background jobs and social apps:** set `TOKEN_ENCRYPTION_KEY`,
+   `CRON_SECRET`, schedule the cron endpoints and create each platform's
+   app (sections below).
+5. **Stripe (optional):** create a monthly Price per paid plan, set
+   `STRIPE_PRICE_*`, `STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and add
+   a webhook endpoint `https://<domain>/api/billing/webhook` for
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted` and
+   `invoice.paid`; set `STRIPE_WEBHOOK_SECRET`. Enable the customer portal in
+   Stripe settings.
+6. **Host:** any Node host (Vercel works out of the box). Set all variables
+   from `.env.example`, including `NEXT_PUBLIC_APP_URL` and
+   `NEXT_PUBLIC_SUPPORT_EMAIL`.
+7. **Legal:** `app/privacy` and `app/terms` are generic templates; have them
+   reviewed for your jurisdiction and business before launch.
 
-Supabase Edge Functions (`/functions/v1/...`): `stripe-checkout`,
-`stripe-portal` (user access token), `stripe-webhook` (Stripe signature).
+## Architecture notes
 
-## Security notes
+- **Credits are enforced in Postgres.** Users cannot write `profiles.credits`,
+  `plan` or `role` (column-level grants), and `usage` / `credit_transactions`
+  are read-only to them. Spending goes through `spend_credits()`, a single
+  atomic `UPDATE … WHERE credits >= cost`. Plan changes go through
+  `apply_plan()`, callable only by the service role (Stripe webhook).
+- AI routes check the balance before calling the provider and charge only
+  after success, so failed generations are never billed.
+- All tables use Row Level Security; storage writes are limited to the
+  user's own `<user_id>/` folder in the `media` bucket.
+- `lib/billing/plans.ts` is the single source of plan allowances and must
+  match `plan_monthly_credits()` in the migrations.
 
-- Social OAuth tokens are encrypted by the app with AES-256-GCM
-  (`TOKEN_ENCRYPTION_KEY`) and are only readable by the service role; users can
-  see non-secret account columns only.
-- Users cannot change their own plan or credit balance; credits are spent via
-  `spend_credits()` and granted only by `apply_plan()` (Stripe webhook) or the
-  free monthly top-up.
-- Before launch, work through [docs/launch-checklist.md](docs/launch-checklist.md).
+## API
+
+All routes need a signed-in session cookie and return `{ success, data }` or
+`{ success: false, error }` (401 unauthenticated, 402 out of credits, 400
+invalid input, 404 not found).
+
+- `GET/POST /api/posts`, `GET/PATCH/DELETE /api/posts/:id`
+- `POST /api/posts/:id/publish`, `POST /api/posts/:id/metrics`
+- `POST /api/ai/generate`, `POST /api/ai/image`
+- `GET /api/credits[?type=transactions]`
+- `GET/POST/PUT/DELETE /api/calendar`
+- `GET /api/analytics`, `GET /api/notifications`, `GET /api/dashboard/*`
+- `GET /api/billing/plans` (public), `POST /api/billing/checkout`,
+  `POST /api/billing/portal`, `POST /api/billing/webhook` (Stripe-signed)
+- `POST /api/feedback`, `DELETE /api/account`

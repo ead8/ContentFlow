@@ -4,6 +4,8 @@ import { requireUserId } from '@/lib/services/auth'
 import { getAnalyticsOverview } from '@/lib/services/analytics'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Dashboard KPI stats computed from the user's own data.
  */

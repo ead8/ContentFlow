@@ -58,16 +58,10 @@ export default function SetPasswordForm() {
     setIsLoading(true)
     
     try {
-     await updatePassword(data.password)
+      const { error } = await updatePassword(data.password)
+      if (error) throw error
 
-     setOpenOnboardingModal(true)
-
-      // toast({
-      //   title: "Password updated",
-      //   description: "Your password has been successfully setted.",
-      // })
-
-      // router.push("/dashboard")
+      setOpenOnboardingModal(true)
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -81,7 +75,7 @@ export default function SetPasswordForm() {
 
   return (
     openOnboardingModal ? (
-      <OnboardingModal onStart={() => router.push('onboarding')}/>
+      <OnboardingModal onStart={() => router.push('/onboarding')}/>
     ) : (
       <div className="flex flex-col gap-4 w-full px-6 pt-6 lg:p-0">
         {/* <ArrowLeft className="w-6 h-6 cursor-pointer" onClick={() => router.back()}/> */}
@@ -98,9 +92,9 @@ export default function SetPasswordForm() {
                   <FormItem className="w-full">
                       <FormLabel>Password</FormLabel>
                       <FormControl className="w-full">
-                          <div className="relative w-96">
+                          <div className="relative w-full max-w-sm">
                               <Input {...field} id="password" type={showPassword ? "text" : "password"} placeholder="Password" className="" />
-                              {showPassword ? <EyeOff className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!setShowPassword)} /> : <Eye className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!showPassword)}/>}
+                              {showPassword ? <EyeOff className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!showPassword)} /> : <Eye className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowPassword(!showPassword)}/>}
                           </div>
                       </FormControl>
                       <FormMessage />
@@ -114,7 +108,7 @@ export default function SetPasswordForm() {
                   <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                          <div className="relative w-96">
+                          <div className="relative w-full max-w-sm">
                               <Input {...field} id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="Password" className="" />
                               {showConfirmPassword ? <EyeOff className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowConfirmPassword(!showConfirmPassword)} /> : <Eye className="h-5 w-5 absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 cursor-pointer" onClick={() => setShowConfirmPassword(!showConfirmPassword)}/>}
                           </div>
@@ -129,9 +123,6 @@ export default function SetPasswordForm() {
             </Button>
           </form>
         </Form>
-        <p className="text-sm text-gray-400 self-center">
-          Already have an account? <a href="/login" className="text-blue-400 font-medium">Sign In</a>
-        </p>
       </div>
     )
   );

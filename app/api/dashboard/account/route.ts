@@ -4,6 +4,8 @@ import { requireUserId } from '@/lib/services/auth'
 import { getPlan } from '@/lib/billing/plans'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Account summary for the dashboard: the user, their plan and the platforms
  * they create content for (from onboarding).

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { deletePost, getPost, updatePost } from '@/lib/services/content-posts'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 type Params = { params: { id: string } }
 
 /** GET /api/posts/:id -> post with publish targets and metrics */
