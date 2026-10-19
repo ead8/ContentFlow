@@ -1,63 +1,98 @@
 'use client';
 
 import { forwardRef, useImperativeHandle } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { fetchCreditUsage } from '@/lib/api/supabase';
+import { ToastAction } from '@/components/ui/toast';
+import { CreditSummary, fetchCreditUsage } from '@/lib/n8n/client';
 
 export type NotifyCreditWarningRef = {
-  /** Call this right after an image/video generation finishes */
-  checkCredits: () => Promise<void>;
+  /**
+   * Call this right after a billed generation finishes. Pass the fresh
+   * balance if you already have it to avoid another request.
+   */
+  checkCredits: (summary?: CreditSummary | null) => Promise<void>;
 };
 
-type CreditType = 'image' | 'video';
-
 interface NotifyCreditWarningProps {
-  /** Which credit bucket to track */
-  type: CreditType;
+  /**
+   * @deprecated All AI features share one credit wallet; kept so existing
+   * callers keep compiling. Has no effect.
+   */
+  type?: string;
 }
 
+/** Share of the monthly allowance used at which a warning is shown */
+const THRESHOLDS = [90, 75] as const;
+
+function storageKey(threshold: number, summary: CreditSummary) {
+  // Scoped to the billing period so a refill re-arms the warnings
+  return `cf:credit-warning:${threshold}:${summary.credits_refreshed_at ?? ''}`;
+}
+
+function alreadyShown(key: string): boolean {
+  try {
+    return window.sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markShown(key: string) {
+  try {
+    window.sessionStorage.setItem(key, '1');
+  } catch {
+    // storage unavailable (private mode etc.); the warning may repeat
+  }
+}
+
+/**
+ * Warns once per session when 75% and again when 90% of the monthly credit
+ * allowance has been used (based on credits remaining in the wallet).
+ */
 const NotifyCreditWarning = forwardRef<NotifyCreditWarningRef, NotifyCreditWarningProps>(
-  ({ type }, ref) => {
+  (_props, ref) => {
     const { toast } = useToast();
+    const router = useRouter();
 
     useImperativeHandle(ref, () => ({
-      async checkCredits() {
-        const data = await fetchCreditUsage();
-        if (!data) return;
+      async checkCredits(provided) {
+        let summary = provided ?? null;
+        if (!summary) {
+          try {
+            summary = await fetchCreditUsage();
+          } catch {
+            return;
+          }
+        }
 
-        const used  = type === 'image' ? data.image_credits_used  : data.video_credits_used;
-        const total = type === 'image' ? data.total_image_credits : data.total_video_credits;
+        const allowance = summary.monthly_allowance;
+        if (!allowance || allowance <= 0) return;
 
-        if (total === 0) return;            // avoid /0 or trial without credits
+        const usedPercent = Math.max(0, ((allowance - summary.credits) / allowance) * 100);
+        const reached = THRESHOLDS.find((t) => usedPercent >= t);
+        if (!reached) return;
 
-        
-        const usedPercent   = (used / total) * 100;
-        const remaining = total - used;
+        const key = storageKey(reached, summary);
+        if (alreadyShown(key)) return;
 
+        // Crossing 90% also covers the 75% warning
+        for (const t of THRESHOLDS) {
+          if (t <= reached) markShown(storageKey(t, summary));
+        }
+
+        const remaining = Math.max(0, summary.credits);
         toast({
-          title: `${type === 'image' ? 'Image' : 'Video'} Credits`,
-          description: `You have ${remaining} ${type} credit${remaining === 1 ? '' : 's'} left.`,
-          duration: 5000,
+          title: reached >= 90 ? 'Credits almost used up' : 'Credits running low',
+          description: `You've used ${Math.min(100, Math.round(usedPercent))}% of this month's credits. ${remaining.toLocaleString()} credit${remaining === 1 ? '' : 's'} left.`,
+          duration: 8000,
+          variant: reached >= 90 ? 'destructive' : 'default',
+          action: (
+            <ToastAction altText="Upgrade your plan" onClick={() => router.push('/settings#billing')}>
+              Upgrade
+            </ToastAction>
+          ),
         });
-
-        // Warning thresholds
-        if (usedPercent === 75) {
-          toast({
-            title: 'Warning',
-            description: `You've used 75% of your ${type} credits.`,
-            duration: 5000,
-            variant: 'destructive',
-          });
-        }
-
-        if (usedPercent === 90) {
-          toast({
-            title: 'Critical Warning',
-            description: `You've used 90% of your ${type} credits.`,
-            duration: 5000,
-            variant: 'destructive',
-          });
-        }
       },
     }));
 

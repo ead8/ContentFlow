@@ -39,14 +39,14 @@ export default function ProfilePage() {
         if (!user?.email) throw new Error("Not signed in")
         const [account, wallet] = await Promise.all([
           api<{ teamMembers: { name: string; role: string }[] }>("/api/dashboard/account"),
-          api<{ available_credits: number }>("/api/credits"),
+          api<{ credits: number }>("/api/credits"),
         ])
         const member = account.teamMembers?.[0]
         setProfile({
           email: user.email,
           name: member?.name || user.email.split("@")[0],
           role: member?.role || "Member",
-          credits: wallet.available_credits ?? 0,
+          credits: wallet.credits ?? 0,
           memberSince: user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "—",
         })
       } catch (e: any) {

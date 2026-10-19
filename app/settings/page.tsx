@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, LogOut, Save, KeyRound } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -9,6 +9,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ConnectedAccounts } from "@/components/settings/connected-accounts"
+import { BillingCard, BillingCardFallback } from "@/components/settings/billing-card"
+import { DeleteAccountCard } from "@/components/settings/delete-account"
+
+function ConnectedAccountsFallback() {
+  return (
+    <Card id="accounts" className="scroll-mt-20">
+      <CardHeader>
+        <CardTitle>Connected accounts</CardTitle>
+        <CardDescription>Loading your social accounts…</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -91,13 +111,19 @@ export default function SettingsPage() {
     router.push("/login")
   }
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-  }
-
   return (
     <main className="mx-auto max-w-2xl py-8 px-4 min-h-screen space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      {/* useSearchParams (OAuth result) needs a Suspense boundary for static builds */}
+      <Suspense fallback={<ConnectedAccountsFallback />}>
+        <ConnectedAccounts />
+      </Suspense>
+
+      {/* Handles ?billing=success|canceled after Stripe Checkout (useSearchParams) */}
+      <Suspense fallback={<BillingCardFallback />}>
+        <BillingCard />
+      </Suspense>
 
       <Card>
         <CardHeader>
@@ -105,23 +131,33 @@ export default function SettingsPage() {
           <CardDescription>How your name appears across the app.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" value={email} disabled />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Display name</Label>
-            <Input
-              id="fullName"
-              placeholder="Your name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleSaveName} disabled={savingName}>
-            {savingName ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Save changes
-          </Button>
+          {loading ? (
+            <div className="space-y-4" aria-hidden="true">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" value={email} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Display name</Label>
+                <Input
+                  id="fullName"
+                  placeholder="Your name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleSaveName} disabled={savingName}>
+                {savingName ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save changes
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -168,6 +204,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <DeleteAccountCard />
     </main>
   )
 }

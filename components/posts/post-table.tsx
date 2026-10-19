@@ -14,13 +14,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import type { ContentPost } from "@/lib/services/content-posts"
+import { PostStatusBadge, POST_STATUS_FILTERS } from "@/components/posts/post-status-badge"
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init)
@@ -108,31 +108,7 @@ const PostsTable = () => {
     router.push(`/posts/${postId}`)
   }
 
-  // Status badge styling
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "draft":
-        return (
-          <Badge variant="outline" className="bg-gray-100 text-gray-800">
-            Draft
-          </Badge>
-        )
-      case "published":
-        return (
-          <Badge variant="outline" className="bg-green-100 text-green-800">
-            Published
-          </Badge>
-        )
-      case "scheduled":
-        return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-            Scheduled
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
+  const getStatusBadge = (status: string) => <PostStatusBadge status={status} />
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
@@ -186,14 +162,16 @@ const PostsTable = () => {
                   setCurrentPage(1)
                 }}
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-[170px]" aria-label="Filter by status">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
+                  {POST_STATUS_FILTERS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -271,12 +249,15 @@ const PostsTable = () => {
                             <DropdownMenuItem onClick={() => handleViewDetail(post.id)}>
                               View details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}?edit=1`)}>
+                            <DropdownMenuItem
+                              disabled={(post.status as string) === "publishing"}
+                              onClick={() => router.push(`/posts/${post.id}?edit=1`)}
+                            >
                               Edit post
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-red-600"
-                              disabled={deletingId === post.id}
+                              disabled={deletingId === post.id || (post.status as string) === "publishing"}
                               onClick={() => handleDelete(post)}
                             >
                               {deletingId === post.id ? "Deleting..." : "Delete post"}

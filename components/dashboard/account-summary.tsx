@@ -60,7 +60,7 @@ export function AccountSummary() {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Account Overview</CardTitle>
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/settings">
+          <Link href="/settings#accounts" aria-label="Manage connected accounts">
             <Settings className="h-4 w-4" />
           </Link>
         </Button>

@@ -5,10 +5,14 @@ import { Button, Card, CardContent, Form, FormControl, FormField, FormItem, Form
 import { Select } from "@radix-ui/react-select"
 import { Loader2, ThumbsDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { generateContent } from "@/lib/n8n/client";
+import { generateContent, isInsufficientCreditsError } from "@/lib/n8n/client";
+import { CREDIT_COSTS } from "@/lib/billing/plans";
+import { useCreditSummary } from "@/hooks/use-credit-summary";
+import CreditLockoutModal from "../credit/credit-lookout-modal";
+import NotifyCreditWarning, { NotifyCreditWarningRef } from "../credit/credit-usage-warning";
 import { MultiSelect } from "../multiselect";
 import { ContentGenerationResponse } from "@/models/content";
 import ContentPreviewComponent from "./generatedContentPreview";
@@ -42,6 +46,9 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
      const [isGeneratingText, setIsGeneratingText] = useState(false)
      const [generatedContent, setGeneratedContent] = useState<ContentGenerationResponse | null>(data?.step_1 || null)
      const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
+     const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
+     const { summary: creditSummary, refresh: refreshCredits } = useCreditSummary()
+     const creditWarningRef = useRef<NotifyCreditWarningRef>(null)
 
       const contentForm = useForm<z.infer<typeof contentFormSchema>>({
         resolver: zodResolver(contentFormSchema),
@@ -54,6 +61,11 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
       })
 
       const onContentSubmit = async (values: z.infer<typeof contentFormSchema>) => {
+        // The server charges CREDIT_COSTS.text from the shared wallet
+        if (creditSummary && creditSummary.credits < CREDIT_COSTS.text) {
+          setIsShowCreditLockout(true)
+          return
+        }
         setIsGeneratingText(true)
         setGeneratedContent(null)
         setBackStepValid(false)
@@ -79,8 +91,15 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
             title: "Content generated",
             description: "Your content has been successfully generated.",
           });
-    
+
+          // generateContent() fired `credits:changed`; reuse that refetch
+          const fresh = await refreshCredits();
+          creditWarningRef.current?.checkCredits(fresh);
         } catch (error: any) {
+          if (isInsufficientCreditsError(error)) {
+            setIsShowCreditLockout(true);
+            return;
+          }
           toast({
             variant: "destructive",
             title: "Generation failed",
@@ -229,6 +248,14 @@ const CampaignIdea = ({data, setStepData, setNextStepValid, setBackStepValid}: C
               onClose={() => setOpenFeedbackModal(false)}
               source="post_feedback"
               />
+              <CreditLockoutModal
+              isOpen={isShowCreditLockout}
+              onClose={() => setIsShowCreditLockout(false)}
+              credits={creditSummary?.credits ?? 0}
+              monthlyAllowance={creditSummary?.monthly_allowance}
+              requiredCredits={CREDIT_COSTS.text}
+              />
+              <NotifyCreditWarning ref={creditWarningRef} />
           </Card>
       )
 }

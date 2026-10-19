@@ -92,6 +92,57 @@ export default function PrivacyPolicyPage() {
             <li>Necessary to protect rights or safety</li>
             </ul>
 
+            <h2 id="connected-social-accounts" className="text-2xl font-semibold text-gray-900">
+            Connected Social Accounts
+            </h2>
+            <p>
+            If you connect a social account (Facebook Pages, Instagram professional accounts, LinkedIn, X,
+            TikTok or YouTube) to publish posts, we store only what we need to publish for you and to show
+            your post performance:
+            </p>
+            <ul className="list-disc ml-6 space-y-1">
+            <li>The account&apos;s id, name, username, profile picture and account type</li>
+            <li>
+                The access and refresh tokens the platform issues to us, encrypted at rest (AES-256-GCM) and
+                readable only by our servers — never shown to you or anyone else
+            </li>
+            <li>The ids and links of posts we publish for you and their public metrics (likes, comments, views)</li>
+            </ul>
+            <p>
+            We use this data only to publish the content you schedule and to report its performance. We do not
+            sell it, use it for advertising, or share it with third parties other than the platform itself. Our
+            use of information received from Google APIs adheres to the{" "}
+            <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                className="underline"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. YouTube uploads are subject to the{" "}
+            <a href="https://www.youtube.com/t/terms" className="underline" target="_blank" rel="noopener noreferrer">
+                YouTube Terms of Service
+            </a>{" "}
+            and the{" "}
+            <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noopener noreferrer">
+                Google Privacy Policy
+            </a>
+            .
+            </p>
+            <p>
+            <strong>Disconnecting and deleting:</strong> disconnect an account at any time in Settings →
+            Connected accounts; its tokens are deleted immediately (you can also revoke access in the
+            platform&apos;s own settings). Deleting your account in Settings → Danger zone permanently deletes
+            all of your data, including connected accounts, posts and media files, and cancels your
+            subscription. If you remove our app from Facebook, you can request deletion there and check its
+            status on our{" "}
+            <Link href="/data-deletion" className="underline">
+                data deletion page
+            </Link>
+            , which also explains every way to delete your data.
+            </p>
+
             <h2 className="text-2xl font-semibold text-gray-900">Communications</h2>
             <p>
             We may contact you regarding services, updates, or events. If you reach out via a form or

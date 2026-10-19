@@ -8,6 +8,8 @@ import { format } from "date-fns"
 import { Calendar, ThumbsUp, MessageSquare, Users, ExternalLink } from "lucide-react"
 import { fetchPostPerformance } from "@/lib/n8n/client"
 import Image from "next/image"
+import { PostStatusBadge } from "@/components/posts/post-status-badge"
+import { platformLabel } from "@/lib/platforms"
 
 interface PostEngagement {
   likes: number;
@@ -19,8 +21,9 @@ interface Post {
   id: string;
   thumbnail: string;
   title: string;
-  status: "posted" | "scheduled" | "draft";
-  platform: string;
+  status: string;
+  platform?: string;
+  platforms?: string[];
   date: string;
   engagement?: PostEngagement;
 }
@@ -33,7 +36,7 @@ export function PostPerformanceOverview() {
     async function loadPosts() {
       try {
         const data = await fetchPostPerformance()
-        setPosts(data)
+        setPosts(data as Post[])
       } catch (error) {
         console.error('Failed to load post performance:', error)
       } finally {
@@ -68,17 +71,13 @@ export function PostPerformanceOverview() {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant={
-                      post.status === "posted" ? "default" :
-                      post.status === "scheduled" ? "secondary" :
-                      "outline"
-                    }>
-                      {post.status}
-                    </Badge>
-                    <Badge variant="outline" className="capitalize">
-                      {post.platform}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <PostStatusBadge status={post.status} />
+                    {(post.platforms?.length ? post.platforms : post.platform ? [post.platform] : []).map((p) => (
+                      <Badge key={p} variant="outline" className="hidden sm:inline-flex">
+                        {platformLabel(p)}
+                      </Badge>
+                    ))}
                   </div>
                   <h4 className="font-medium truncate">{post.title}</h4>
                   <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">

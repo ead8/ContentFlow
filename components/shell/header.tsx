@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Bell, LogOut, Menu, Search, Settings, User } from "lucide-react"
+import { LogOut, Menu, Search, Settings, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -17,6 +17,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { MobileSidebar } from "./mobile-sidebar"
 import { useAuth } from "../auth-provider"
 import { CreditsBadge } from "../credit/credits-badge"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 interface HeaderProps {
   isSidebarOpen: boolean
@@ -54,23 +55,18 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
 
       <div className="flex items-center gap-3">
         <CreditsBadge />
-        <Button size="sm" className="hidden sm:flex gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-          Upgrade
+        <Button asChild size="sm" className="hidden sm:flex gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+          <Link href="/settings#billing">Upgrade</Link>
         </Button>
         
-        <div className="relative">
-          <Button variant="ghost" size="icon" className="relative h-9 w-9">
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-destructive"></span>
-          </Button>
-        </div>
+        <NotificationBell />
 
         <div className="flex items-center gap-1">
           <ModeToggle />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
+              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9" aria-label="Account menu">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
                     {user?.email?.charAt(0).toUpperCase() || 'U'}

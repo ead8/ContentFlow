@@ -1,6 +1,6 @@
 import { Post } from '@/models/content'
 import { createClient } from '../supabase/client'
-import { CreditUsage, OnboardingType, UserProfile } from '@/models/user'
+import { OnboardingType, UserProfile } from '@/models/user'
 
 export async function handleOnboarding(onboardingData: OnboardingType): Promise<boolean> {
   const supabase = createClient()
@@ -51,26 +51,12 @@ export async function fetchLoggedinUserProfile(): Promise<UserProfile> {
 }
 
 
-export async function fetchCreditUsage(): Promise<CreditUsage> {
-    const supabase = createClient()
-    const { data: { session }} = await supabase.auth.getSession()
-
-    if (!session) {
-      throw new Error('User is not authenticated')
-    }
-
-    const { data, error } = await supabase
-    .from('usage')
-    .select('*')
-    .eq('user_id', session.user.id)
-    ?.single()
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    return data as CreditUsage
-}
+/**
+ * Credit wallet summary. Delegates to GET /api/dashboard/credits so the
+ * browser never reads the legacy per-user `usage` table pools.
+ */
+export { fetchCreditUsage } from '@/lib/n8n/client'
+export type { CreditSummary } from '@/lib/n8n/client'
 
 
 export async function fetchPostList(): Promise<Post[]> {

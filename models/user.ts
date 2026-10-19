@@ -15,6 +15,10 @@ export type OnboardingType = {
 }
 
 
+/**
+ * @deprecated Legacy `usage` table row. Credits are billed from the wallet
+ * (profiles.credits); use CreditSummary from '@/lib/n8n/client'.
+ */
 export type CreditUsage = {
     id: string
     user_id: string

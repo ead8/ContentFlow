@@ -72,7 +72,11 @@ export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
   const postCounts = { draft: 0, scheduled: 0, published: 0, total: 0 }
   for (const p of posts || []) {
     postCounts.total++
-    if (p.status in postCounts) postCounts[p.status as 'draft' | 'scheduled' | 'published']++
+    // Partially published posts are live, so they count as published
+    const status = p.status === 'partially_published' ? 'published' : p.status
+    if (status in postCounts && status !== 'total') {
+      postCounts[status as 'draft' | 'scheduled' | 'published']++
+    }
   }
 
   const topPosts = (posts || [])

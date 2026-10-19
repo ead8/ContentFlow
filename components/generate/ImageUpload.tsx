@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,13 +12,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '../ui/textarea'
 
 import { ImageUploadStep, WizardFormData } from './MultiStep'
-import { generateImage } from '@/lib/n8n/client'
+import { generateImage, isInsufficientCreditsError } from '@/lib/n8n/client'
+import { CREDIT_COSTS } from '@/lib/billing/plans'
+import { useCreditSummary } from '@/hooks/use-credit-summary'
 import { useToast } from '@/hooks/use-toast'
 import { z } from 'zod'
 import FullscreenImageViewer from './fullScreenViewer'
 import CreditLockoutModal from '../credit/credit-lookout-modal'
-import { CreditUsage } from '@/models/user'
-import { fetchCreditUsage } from '@/lib/api/supabase'
 import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
 import FeedbackModal from '../feedback/feedback-modal'
 
@@ -41,8 +41,7 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   const [isGenerating, setIsGenerating] = useState(false)
   const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
   const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
-  const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
-  const [isLoadingCredits, setIsLoadingCredits] = useState(true)
+  const { summary: creditSummary, isLoading: isLoadingCredits, refresh: loadCreditUsage } = useCreditSummary()
   const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
 
   const imageCreditRef = useRef<NotifyCreditWarningRef>(null);
@@ -56,7 +55,8 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
   })
 
   const onSubmit = async (formData: { generationPrompt: string }) => {
-    if(creditUsage && creditUsage.total_image_credits - creditUsage.image_credits_used <= 0) {
+    // The server charges CREDIT_COSTS.image from the shared wallet
+    if (creditSummary && creditSummary.credits < CREDIT_COSTS.image) {
       setIsShowCreditLockout(true)
     } else {
       try {
@@ -79,11 +79,16 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
           description: 'Your image was successfully created with AI magic.',
         })
 
-        loadCreditUsage()
-        imageCreditRef.current?.checkCredits()
+        // generateImage() fired `credits:changed`; reuse that refetch
+        const fresh = await loadCreditUsage()
+        imageCreditRef.current?.checkCredits(fresh)
       } catch (error: any) {
-        console.error('Error generating image:', error)
-        setOpenFeedbackModal(true)
+        if (isInsufficientCreditsError(error)) {
+          setIsShowCreditLockout(true)
+        } else {
+          console.error('Error generating image:', error)
+          setOpenFeedbackModal(true)
+        }
       } finally {
         setIsGenerating(false)
         setBackStepValid(true)
@@ -92,37 +97,22 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
     }
   }
 
-  const loadCreditUsage = async () => {
-      try {
-        setIsLoadingCredits(true)
-        const usage = await fetchCreditUsage()
-        setCreditUsage(usage)
-      } catch (error) {
-        console.error("Failed to load credit usage:", error)
-      } finally {
-        setIsLoadingCredits(false)
-      }
-  }
-
-  useEffect(() => {
-    loadCreditUsage()
-  }, [])
-
   return (
     <Card>
       {/* Credit Balance Display */}
       <div className="flex justify-between items-center bg-muted/30 p-3 rounded-t-l-lg rounded-t-r-lg border border-muted">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-pink-500" />
-          <span className="text-sm font-medium">Image Credits</span>
+          <span className="text-sm font-medium">Credits</span>
+          <span className="text-xs text-muted-foreground">({CREDIT_COSTS.image} per image)</span>
         </div>
         <div className="flex items-center gap-1.5">
-          {isLoadingCredits ? (
+          {isLoadingCredits && !creditSummary ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : creditUsage ? (
+          ) : creditSummary ? (
             <span className="text-sm font-bold">
-              {creditUsage.total_image_credits - creditUsage.image_credits_used}{" "}
-              <span className="text-muted-foreground font-normal">/ {creditUsage.total_image_credits} remaining</span>
+              {creditSummary.credits.toLocaleString()}{" "}
+              <span className="text-muted-foreground font-normal">/ {creditSummary.monthly_allowance.toLocaleString()} remaining</span>
             </span>
           ) : (
             <span className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCcw className='w-4 h-4 cursor-pointer text-primary' onClick={() => loadCreditUsage()}/>Unable to load credits</span>
@@ -199,11 +189,11 @@ const ImageUpload = ({ data, setStepData, setNextStepValid, setBackStepValid }: 
       <CreditLockoutModal
         isOpen={isShowCreditLockout}
         onClose={() => {setIsShowCreditLockout(false)}}
-        usedCredits={creditUsage?.image_credits_used ?? 0}
-        totalCredits={creditUsage?.total_image_credits ?? 0}
-        onUpgradeClick={() => {}}
+        credits={creditSummary?.credits ?? 0}
+        monthlyAllowance={creditSummary?.monthly_allowance}
+        requiredCredits={CREDIT_COSTS.image}
       />
-      <NotifyCreditWarning ref={imageCreditRef} type="image" />
+      <NotifyCreditWarning ref={imageCreditRef} />
       {
         openFeedbackModal && (
           <FeedbackModal

@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, RefreshCcw, Sparkles, VideoIcon } from 'lucide-react'
+import { Loader2, VideoIcon } from 'lucide-react'
 import {
   FormField,
   FormItem,
@@ -20,10 +20,6 @@ import { Card, CardContent, RadioGroup, RadioGroupItem } from '../ui'
 import { VideoGenerationStep, WizardFormData } from './MultiStep'
 import { generateMedia, pollVideoStatus } from '@/lib/n8n/client'
 import { useToast } from '@/hooks/use-toast'
-import CreditLockoutModal from '../credit/credit-lookout-modal'
-import { CreditUsage } from '@/models/user'
-import { fetchCreditUsage } from '@/lib/api/supabase'
-import NotifyCreditWarning, { NotifyCreditWarningRef } from '../credit/credit-usage-warning'
 import FeedbackModal from '../feedback/feedback-modal'
 
 const videoFormSchema = z.object({
@@ -49,13 +45,11 @@ export default function VideoGeneration({
   const { toast } = useToast()
   const [videoUrl, setVideoUrl] = useState<string | null>(data?.step_3?.video_url || null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isShowCreditLockout, setIsShowCreditLockout] = useState(false)
-  const [creditUsage, setCreditUsage] = useState<CreditUsage | null>(null)
-  const [isLoadingCredits, setIsLoadingCredits] = useState(true)
   const [openFeedbackModal, setOpenFeedbackModal] = useState(false)
   const [isWaiting, setIsWaiting] = useState(false)
 
-  const videoCreditRef = useRef<NotifyCreditWarningRef>(null)
+  // Video generation is not billed from the credit wallet (the server has no
+  // video spend_credits call), so it is never blocked on credits here.
   
   const videoForm = useForm<VideoFormData>({
     resolver: zodResolver(videoFormSchema),
@@ -79,139 +73,90 @@ export default function VideoGeneration({
   }
 
   const handleGenerate = async (formData: VideoFormData) => {
-    if(creditUsage && creditUsage.total_video_credits - creditUsage.video_credits_used <= 0) {
-      setIsShowCreditLockout(true);
-      return;
-    } else {
-      try {
-        setIsWaiting(true)
-        setIsGenerating(true);
-        setBackStepValid(false);
-    
-        /* 1️⃣ request generation */
-        const result = await generateMedia({
-          prompt: formData.video_prompt.replace(/\n/g, ' '),
-          media_type: "video",
-          cron_job: false
-        });
-    
-        toast({
-          title: "Video queued ⏳",
-          description: "We’re processing your video. This usually takes a minute.",
-        });
-    
-        /* 2️⃣ poll until ready */
-        const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
-    
-        setVideoUrl(finalUrl);
-        setStepData({
-          video_prompt: formData.video_prompt,
-          video_url: finalUrl
-        });
-    
-        setNextStepValid(true);
-    
-        toast({
-          title: "Success! ✨",
-          description: "Your video is ready.",
-        });
-    
-        // Fetch updated credit usage after generation
-        loadCreditUsage()
-        videoCreditRef.current?.checkCredits()
-    
-      } catch (err: any) {
-        console.error("Video Pulling Error",err);
-        setOpenFeedbackModal(true);
-    
-      } finally {
-        setIsGenerating(false);
-        setBackStepValid(true);
-        setNextStepValid(true);
-      }
+    try {
+      setIsWaiting(true)
+      setIsGenerating(true);
+      setBackStepValid(false);
+  
+      /* 1️⃣ request generation */
+      const result = await generateMedia({
+        prompt: formData.video_prompt.replace(/\n/g, ' '),
+        media_type: "video",
+        cron_job: false
+      });
+  
+      toast({
+        title: "Video queued ⏳",
+        description: "We’re processing your video. This usually takes a minute.",
+      });
+  
+      /* 2️⃣ poll until ready */
+      const finalUrl = await pollVideoStatus(result.jobId, result.mediaId);
+  
+      setVideoUrl(finalUrl);
+      setStepData({
+        video_prompt: formData.video_prompt,
+        video_url: finalUrl
+      });
+  
+      setNextStepValid(true);
+  
+      toast({
+        title: "Success! ✨",
+        description: "Your video is ready.",
+      });
+  
+    } catch (err: any) {
+      console.error("Video Pulling Error",err);
+      setOpenFeedbackModal(true);
+  
+    } finally {
+      setIsGenerating(false);
+      setBackStepValid(true);
+      setNextStepValid(true);
     }
   };
 
   const handleGenerateWithEmail = async (formData: VideoFormData) => {
-    if(creditUsage && creditUsage.total_video_credits - creditUsage.video_credits_used <= 0) {
-      setIsShowCreditLockout(true);
-      return;
-    } else {
-      try {
-        setIsWaiting(false)
-        setIsGenerating(true);
-        setBackStepValid(false);
-    
-        /* 1️⃣ request generation */
-        const result = await generateMedia({
-          prompt: formData.video_prompt.replace(/\n/g, ' '),
-          media_type: "video",
-          cron_job: true
-        });
-    
-        setStepData({
-          video_prompt: formData.video_prompt,
-          job_id: result.jobId,
-          media_id: result.mediaId,
-          isEmailNotify: true
-        });
-    
-        setNextStepValid(true);
-    
-        toast({
-          title: "Video Request Received 📩",
-          description: "We’re generating your video. You’ll receive an email once it’s ready.",
-        })
-    
-      } catch (err: any) {
-        console.error("Video Generation Error",err);
-        setOpenFeedbackModal(true);
-    
-      } finally {
-        setIsGenerating(false);
-        setBackStepValid(true);
-        setNextStepValid(true);
-      }
+    try {
+      setIsWaiting(false)
+      setIsGenerating(true);
+      setBackStepValid(false);
+  
+      /* 1️⃣ request generation */
+      const result = await generateMedia({
+        prompt: formData.video_prompt.replace(/\n/g, ' '),
+        media_type: "video",
+        cron_job: true
+      });
+  
+      setStepData({
+        video_prompt: formData.video_prompt,
+        job_id: result.jobId,
+        media_id: result.mediaId,
+        isEmailNotify: true
+      });
+  
+      setNextStepValid(true);
+  
+      toast({
+        title: "Video Request Received 📩",
+        description: "We’re generating your video. You’ll receive an email once it’s ready.",
+      })
+  
+    } catch (err: any) {
+      console.error("Video Generation Error",err);
+      setOpenFeedbackModal(true);
+  
+    } finally {
+      setIsGenerating(false);
+      setBackStepValid(true);
+      setNextStepValid(true);
     }
   }
 
-  const loadCreditUsage = async () => {
-      try {
-        setIsLoadingCredits(true)
-        const usage = await fetchCreditUsage()
-        setCreditUsage(usage)
-      } catch (error) {
-        console.error("Failed to load credit usage:", error)
-      } finally {
-        setIsLoadingCredits(false)
-      }
-  }
-
-  useEffect(() => {
-    loadCreditUsage()
-  }, [])
-
   return (
     <Card>
-      {/* Credit Balance Display */}
-      <div className="flex justify-between items-center bg-muted/30 p-3 rounded-t-l-lg rounded-t-r-lg border border-muted">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-pink-500" />
-          <span className="text-sm font-medium">Video Credits</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {isLoadingCredits ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : creditUsage ? (
-            <span className="text-sm font-bold">
-              {creditUsage.total_video_credits - creditUsage.video_credits_used}{" "}
-              <span className="text-muted-foreground font-normal">/ {creditUsage.total_video_credits} remaining</span>
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCcw className='w-4 h-4 cursor-pointer text-primary' onClick={() => loadCreditUsage()}/>Unable to load credits</span>
-          )}
-        </div>
-      </div>
       <CardContent className="pt-6 space-y-6">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <VideoIcon className="w-5 h-5 text-primary" />
@@ -331,17 +276,6 @@ export default function VideoGeneration({
           </div>
         )}
       </CardContent>
-      <CreditLockoutModal
-        isOpen={isShowCreditLockout}
-        onClose={() => {setIsShowCreditLockout(false)}}
-        usedCredits={creditUsage?.video_credits_used ?? 0}
-        totalCredits={creditUsage?.total_video_credits ?? 0}
-        onUpgradeClick={() => {}}
-      />
-      <NotifyCreditWarning
-        type='video'
-        ref={videoCreditRef}
-      />
       {
         openFeedbackModal && (
           <FeedbackModal

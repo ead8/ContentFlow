@@ -1,40 +1,58 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
 import {
   ArrowLeft,
   Calendar,
   Clock,
-  ExternalLink,
   Loader2,
+  Send,
   Sparkles,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import type { ContentPost } from "@/lib/services/content-posts"
+import { platformLabel } from "@/lib/platforms"
+import { PostStatusBadge } from "@/components/posts/post-status-badge"
+import { PublishingPanel, postPlatforms, type PublishTarget } from "@/components/posts/publishing-panel"
+import {
+  type AccountRow,
+  fetchSocialAccounts,
+  publishingAccountFor,
+} from "@/components/settings/social-accounts-api"
 
-interface PostTarget {
-  id: string
-  platform: string
+type PostDetailData = Omit<ContentPost, "status"> & {
+  /** draft | scheduled | publishing | published | partially_published | failed */
   status: string
-  published_at: string | null
-  error_message: string | null
+  targets: PublishTarget[]
 }
 
-interface PostDetailData extends ContentPost {
-  targets: PostTarget[]
-}
+/** Post statuses that can be sent through connected accounts right now */
+const AUTO_PUBLISHABLE = ["draft", "scheduled", "failed", "partially_published"]
+const POLL_MS = 5_000
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init)
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  })
   const body = await res.json().catch(() => null)
   if (!res.ok || body?.success === false) {
     throw new Error(body?.error || `Request failed (${res.status})`)
@@ -42,30 +60,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data as T
 }
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "draft":
-      return (
-        <Badge variant="outline" className="bg-gray-100 text-gray-800">
-          Draft
-        </Badge>
-      )
-    case "published":
-      return (
-        <Badge variant="outline" className="bg-green-100 text-green-800">
-          Published
-        </Badge>
-      )
-    case "scheduled":
-      return (
-        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          Scheduled
-        </Badge>
-      )
-    default:
-      return <Badge variant="outline">{status}</Badge>
-  }
+function isRunning(post: PostDetailData | null): boolean {
+  return !!post && (post.status === "publishing" || post.targets.some((t) => t.status === "publishing"))
 }
+
+const getStatusBadge = (status: string) => <PostStatusBadge status={status} />
 
 const PostDetail = ({ postId }: { postId: string }) => {
   const router = useRouter()
@@ -80,6 +79,25 @@ const PostDetail = ({ postId }: { postId: string }) => {
   const [editContent, setEditContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
+  // Auto-publishing
+  /** null = loading, undefined = endpoint failed (state unknown) */
+  const [accounts, setAccounts] = useState<AccountRow[] | null | undefined>(null)
+  const [confirmPublish, setConfirmPublish] = useState(false)
+  const [isPublishingNow, setIsPublishingNow] = useState(false)
+  const [retrying, setRetrying] = useState<string | null>(null)
+  const sawPublishing = useRef(false)
+
+  const isPublishing = isRunning(post)
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      const data = await fetchSocialAccounts()
+      setAccounts(data.accounts)
+    } catch {
+      setAccounts(undefined)
+    }
+  }, [])
+
   useEffect(() => {
     async function load() {
       try {
@@ -88,7 +106,7 @@ const PostDetail = ({ postId }: { postId: string }) => {
         setPost(data)
         setEditTitle(data.title || "")
         setEditContent(data.content)
-        if (searchParams.get("edit") === "1") setIsEditing(true)
+        if (searchParams.get("edit") === "1" && !isRunning(data)) setIsEditing(true)
       } catch (error: any) {
         setLoadError(error.message || "Failed to load post.")
       } finally {
@@ -96,8 +114,134 @@ const PostDetail = ({ postId }: { postId: string }) => {
       }
     }
     load()
+    loadAccounts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId])
+
+  const announceResult = useCallback(
+    (status: string) => {
+      switch (status) {
+        case "published":
+          toast({ title: "Published", description: "Your post is live on all of its platforms." })
+          break
+        case "partially_published":
+          toast({
+            title: "Partially published",
+            description: "Some platforms need attention. See the Publishing section for details.",
+          })
+          break
+        case "failed":
+          toast({
+            variant: "destructive",
+            title: "Publishing failed",
+            description: "See the Publishing section for details and retry options.",
+          })
+          break
+        case "publishing":
+          toast({ title: "Publishing…", description: "This page will update when it's done." })
+          break
+        default:
+          toast({ title: "Publish request sent" })
+      }
+    },
+    [toast]
+  )
+
+  // Poll every 5s while the publisher is working on this post
+  useEffect(() => {
+    if (!isPublishing) return
+    sawPublishing.current = true
+    let cancelled = false
+    const id = window.setInterval(async () => {
+      try {
+        const data = await api<PostDetailData>(`/api/posts/${encodeURIComponent(postId)}`)
+        if (!cancelled) setPost(data)
+      } catch {
+        // transient errors: keep polling
+      }
+    }, POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [isPublishing, postId])
+
+  // Announce the outcome once polling sees the publish run finish
+  useEffect(() => {
+    if (!post || isPublishing || !sawPublishing.current) return
+    sawPublishing.current = false
+    announceResult(post.status)
+    loadAccounts()
+  }, [post, isPublishing, announceResult, loadAccounts])
+
+  const runAutoPublish = async (platforms?: string[]) => {
+    if (!post) return
+    const updated = await api<PostDetailData>(`/api/posts/${encodeURIComponent(post.id)}/publish`, {
+      method: "POST",
+      body: JSON.stringify(platforms ? { mode: "auto", platforms } : { mode: "auto" }),
+    })
+    if (isRunning(updated)) {
+      // the polling effect announces the final result
+      sawPublishing.current = true
+      setPost(updated)
+      announceResult("publishing")
+    } else {
+      sawPublishing.current = false
+      setPost(updated)
+      announceResult(updated.status)
+      loadAccounts()
+    }
+  }
+
+  const handlePublishNow = async () => {
+    setConfirmPublish(false)
+    setIsPublishingNow(true)
+    try {
+      await runAutoPublish()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Publish failed",
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsPublishingNow(false)
+    }
+  }
+
+  const handleRetry = async (platform: string) => {
+    setRetrying(platform)
+    try {
+      await runAutoPublish([platform])
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: `Retry on ${platformLabel(platform)} failed`,
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setRetrying(null)
+    }
+  }
+
+  const handleMarkPublished = async (platform: string, url: string | null) => {
+    if (!post) return
+    try {
+      const updated = await api<PostDetailData>(`/api/posts/${encodeURIComponent(post.id)}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ platforms: [{ platform, url }] }),
+      })
+      setPost(updated)
+      toast({ title: `Marked as published on ${platformLabel(platform)}` })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Could not update",
+        description: error.message || "Please try again.",
+      })
+      throw error
+    }
+  }
 
   const handleSave = async () => {
     if (!post) return
@@ -107,7 +251,7 @@ const PostDetail = ({ postId }: { postId: string }) => {
         method: "PUT",
         body: JSON.stringify({ postId: post.id, title: editTitle, content: editContent }),
       })
-      setPost({ ...post, ...updated })
+      setPost({ ...post, ...updated, status: updated.status })
       setIsEditing(false)
       toast({ title: "Post updated" })
     } catch (error: any) {
@@ -152,10 +296,23 @@ const PostDetail = ({ postId }: { postId: string }) => {
     )
   }
 
+  const pendingPlatforms = postPlatforms(post).filter(
+    (p) => post.targets.find((t) => t.platform === p)?.status !== "published"
+  )
+  const autoPlatforms = accounts
+    ? pendingPlatforms.filter((p) => publishingAccountFor(accounts, p))
+    : pendingPlatforms
+  const manualPlatforms = accounts
+    ? pendingPlatforms.filter((p) => !publishingAccountFor(accounts, p))
+    : []
+  // Unknown account state (loading or endpoint failed) -> let the server decide
+  const hasAnyAccount = !accounts || autoPlatforms.length > 0
+  const canAutoPublish = AUTO_PUBLISHABLE.includes(post.status) && pendingPlatforms.length > 0
+
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="flex items-center min-w-0">
           <Button variant="ghost" onClick={handleBack} className="mr-2 shrink-0">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -166,19 +323,44 @@ const PostDetail = ({ postId }: { postId: string }) => {
             {post.title || post.content.slice(0, 50)}
           </h1>
         </div>
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {getStatusBadge(post.status)}
+          {!isEditing && canAutoPublish && (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmPublish(true)}
+              disabled={isPublishingNow || isPublishing || !hasAnyAccount}
+              title={
+                !hasAnyAccount
+                  ? "Connect an account in Settings to publish automatically"
+                  : undefined
+              }
+            >
+              {isPublishingNow ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Publish now
+            </Button>
+          )}
           {isEditing ? (
             <>
               <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button onClick={handleSave} disabled={isSaving || isPublishing}>
                 {isSaving ? "Saving..." : "Save changes"}
               </Button>
             </>
           ) : (
-            <Button onClick={() => setIsEditing(true)}>Edit Post</Button>
+            <Button
+              onClick={() => setIsEditing(true)}
+              disabled={isPublishing || isPublishingNow}
+              title={isPublishing ? "Editing is disabled while the post is publishing" : undefined}
+            >
+              Edit Post
+            </Button>
           )}
         </div>
       </div>
@@ -249,16 +431,22 @@ const PostDetail = ({ postId }: { postId: string }) => {
           {isEditing ? (
             <>
               <div className="space-y-1">
-                <div className="text-sm font-medium text-gray-500">Title</div>
+                <label htmlFor="edit-title" className="text-sm font-medium text-gray-500">
+                  Title
+                </label>
                 <Input
+                  id="edit-title"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   placeholder="Post title"
                 />
               </div>
               <div className="space-y-1">
-                <div className="text-sm font-medium text-gray-500">Content</div>
+                <label htmlFor="edit-content" className="text-sm font-medium text-gray-500">
+                  Content
+                </label>
                 <Textarea
+                  id="edit-content"
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   rows={8}
@@ -289,47 +477,36 @@ const PostDetail = ({ postId }: { postId: string }) => {
         </CardContent>
       </Card>
 
-      {/* Publishing targets */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Publishing Targets</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {post.targets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No publishing targets yet. Targets are created when you publish this post to
-              connected social accounts.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {post.targets.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="capitalize">
-                      {t.platform}
-                    </Badge>
-                    {getStatusBadge(t.status)}
-                    {t.error_message && (
-                      <span className="text-xs text-red-600">{t.error_message}</span>
-                    )}
-                  </div>
-                  <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    className="text-muted-foreground hover:text-primary"
-                    title="Open on platform"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Publishing status per platform */}
+      <PublishingPanel
+        post={post}
+        accounts={accounts}
+        busy={isPublishingNow || isPublishing}
+        retrying={retrying}
+        onRetry={handleRetry}
+        onMarkPublished={handleMarkPublished}
+      />
+
+      <AlertDialog open={confirmPublish} onOpenChange={setConfirmPublish}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish this post now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {autoPlatforms.length > 0
+                ? `It will be posted immediately to ${autoPlatforms.map(platformLabel).join(", ")} through your connected accounts.`
+                : "It will be posted immediately through your connected accounts."}
+              {manualPlatforms.length > 0 &&
+                ` ${manualPlatforms.map(platformLabel).join(", ")} ${
+                  manualPlatforms.length === 1 ? "has" : "have"
+                } no connected account and will need to be posted manually.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePublishNow}>Publish now</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

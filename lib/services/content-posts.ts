@@ -4,7 +4,15 @@ import { PLATFORMS } from '@/lib/platforms'
 import type { PlatformPost } from '@/models/content'
 import { ValidationError } from '@/lib/api/error'
 
-export type PostStatus = 'draft' | 'scheduled' | 'published'
+export type PostStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'publishing'
+  | 'published'
+  | 'partially_published'
+  | 'failed'
+
+export type TargetStatus = 'pending' | 'publishing' | 'published' | 'failed' | 'needs_manual'
 
 export interface ContentPost {
   id: string
@@ -31,10 +39,18 @@ export interface PostTarget {
   id: string
   post_id: string
   platform: string
-  status: string
+  status: TargetStatus
   published_at: string | null
   external_url: string | null
   error_message: string | null
+  /** Connected account used for auto-publishing (null when marked manually) */
+  social_account_id: string | null
+  /** Provider's post id, set when auto-published */
+  external_id: string | null
+  attempts: number
+  /** When the publisher will retry a failed target (null = no retry) */
+  next_attempt_at: string | null
+  last_attempt_at: string | null
 }
 
 export interface PostMetric {
@@ -213,7 +229,9 @@ export async function getPost(postId: string): Promise<PostWithDetails | null> {
   const [{ data: targets }, { data: metrics }] = await Promise.all([
     supabase
       .from('post_targets')
-      .select('id, post_id, platform, status, published_at, external_url, error_message')
+      .select(
+        'id, post_id, platform, status, published_at, external_url, error_message, social_account_id, external_id, attempts, next_attempt_at, last_attempt_at'
+      )
       .eq('post_id', postId)
       .order('created_at', { ascending: true }),
     supabase
@@ -228,6 +246,8 @@ export async function getPost(postId: string): Promise<PostWithDetails | null> {
     metrics: (metrics || []) as PostMetric[],
   }
 }
+
+const POST_BUSY_MESSAGE = 'This post is being published right now. Try again in a minute.'
 
 export interface UpdatePostInput {
   title?: string | null
@@ -258,8 +278,10 @@ export async function updatePost(postId: string, input: UpdatePostInput): Promis
 
   if (loadError) throw loadError
   if (!existing) throw new Error('Post not found')
+  if (existing.status === 'publishing') throw new ValidationError(POST_BUSY_MESSAGE)
 
   const updates: Record<string, unknown> = {}
+  let resetTargets = false
 
   if (input.title !== undefined) updates.title = input.title ? String(input.title).slice(0, 300) : null
   if (input.description !== undefined) {
@@ -283,23 +305,51 @@ export async function updatePost(postId: string, input: UpdatePostInput): Promis
   if (input.scheduled_for !== undefined) {
     const scheduledFor = parseSchedule(input.scheduled_for)
     updates.scheduled_for = scheduledFor
-    if (existing.status !== 'published') updates.status = scheduledFor ? 'scheduled' : 'draft'
-  } else if (input.status === 'draft' && existing.status === 'scheduled') {
+    if (existing.status !== 'published') {
+      if (scheduledFor) {
+        // (Re)scheduling, including a failed or partially published post:
+        // the platforms not yet published get a fresh set of attempts.
+        updates.status = 'scheduled'
+        resetTargets = true
+      } else if (existing.status !== 'partially_published') {
+        updates.status = 'draft'
+      }
+    }
+  } else if (input.status === 'draft' && (existing.status === 'scheduled' || existing.status === 'failed')) {
     updates.status = 'draft'
     updates.scheduled_for = null
   }
 
   if (Object.keys(updates).length === 0) throw new ValidationError('Nothing to update')
 
+  if (resetTargets || updates.status === 'draft') {
+    // Pending retries belong to the old schedule; a draft is never retried.
+    // Done first so the publisher never sees the new schedule with old state.
+    const { error: targetError } = await supabase
+      .from('post_targets')
+      .update(
+        resetTargets
+          ? { status: 'pending', attempts: 0, next_attempt_at: null, error_message: null }
+          : { next_attempt_at: null }
+      )
+      .eq('post_id', postId)
+      .in('status', resetTargets ? ['failed', 'needs_manual', 'pending'] : ['failed'])
+    if (targetError) throw targetError
+  }
+
+  // Guard against the publisher claiming the post in the meantime
   const { data, error } = await supabase
     .from('content_posts')
     .update(updates)
     .eq('id', postId)
     .eq('user_id', userId)
+    .neq('status', 'publishing')
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) throw error
+  if (!data) throw new ValidationError(POST_BUSY_MESSAGE)
+
   return data as ContentPost
 }
 
@@ -332,6 +382,7 @@ export async function markPublished(
 
   if (postError) throw postError
   if (!post) throw new Error('Post not found')
+  if (post.status === 'publishing') throw new ValidationError(POST_BUSY_MESSAGE)
 
   const now = new Date().toISOString()
   const { error: targetError } = await supabase.from('post_targets').upsert(
@@ -342,6 +393,7 @@ export async function markPublished(
       published_at: now,
       external_url: e.url || null,
       error_message: null,
+      next_attempt_at: null,
     })),
     { onConflict: 'post_id,platform' }
   )
@@ -353,6 +405,7 @@ export async function markPublished(
       .update({ status: 'published', published_at: now })
       .eq('id', postId)
       .eq('user_id', userId)
+      .neq('status', 'publishing')
     if (error) throw error
   }
 
@@ -414,8 +467,18 @@ export async function deletePost(postId: string): Promise<void> {
     .delete()
     .eq('id', postId)
     .eq('user_id', userId)
+    .neq('status', 'publishing')
     .select('id')
 
   if (error) throw error
-  if (!data || data.length === 0) throw new Error('Post not found')
+  if (!data || data.length === 0) {
+    const { data: existing } = await supabase
+      .from('content_posts')
+      .select('status')
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (existing?.status === 'publishing') throw new ValidationError(POST_BUSY_MESSAGE)
+    throw new Error('Post not found')
+  }
 }

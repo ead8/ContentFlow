@@ -9,6 +9,30 @@ import { AddFeedbackRequest, ContentGenerationRequest, ContentGenerationResponse
  * which is no longer required.
  */
 
+/** Error thrown by the API helper; carries the HTTP status code */
+export class ApiRequestError extends Error {
+  name = 'ApiRequestError';
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+/** True when the server refused an AI operation because the wallet is too low (HTTP 402) */
+export function isInsufficientCreditsError(error: unknown): boolean {
+  if (error instanceof ApiRequestError && error.status === 402) return true;
+  return error instanceof Error && error.message === 'Insufficient credits';
+}
+
+/** Window event fired whenever the credit balance may have changed */
+export const CREDITS_CHANGED_EVENT = 'credits:changed';
+
+/** Tell credit displays (header badge, dashboard tracker, ...) to refetch */
+export function notifyCreditsChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(CREDITS_CHANGED_EVENT));
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -23,10 +47,25 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!res.ok || body?.success === false) {
-    throw new Error(body?.error || `Request failed (${res.status})`);
+    throw new ApiRequestError(body?.error || `Request failed (${res.status})`, res.status);
   }
 
   return body.data as T;
+}
+
+/**
+ * Run an AI request that is billed from the credit wallet and let the credit
+ * displays know the balance changed (also when it was refused with 402).
+ */
+async function billed<T>(request: () => Promise<T>): Promise<T> {
+  try {
+    const result = await request();
+    notifyCreditsChanged();
+    return result;
+  } catch (error) {
+    if (isInsufficientCreditsError(error)) notifyCreditsChanged();
+    throw error;
+  }
 }
 
 export async function fetchDashboardStats() {
@@ -59,13 +98,25 @@ export async function fetchPostPerformance(): Promise<DashboardPost[]> {
   return api<DashboardPost[]>('/api/dashboard/performance');
 }
 
-export async function fetchCreditUsage() {
-  return api<{
-    image_credits_used: number;
-    video_credits_used: number;
-    total_image_credits: number;
-    total_video_credits: number;
-  }>('/api/dashboard/credits');
+/**
+ * The user's credit wallet (profiles.credits), as billed by the server.
+ * Returned by GET /api/dashboard/credits.
+ */
+export interface CreditSummary {
+  /** Credits remaining */
+  credits: number;
+  plan: string;
+  plan_name: string;
+  monthly_allowance: number;
+  credits_refreshed_at: string;
+  /** Credits spent since credits_refreshed_at */
+  used_this_period: number;
+  used_by_kind: { text: number; image: number; video: number };
+  next_refresh_at: string;
+}
+
+export async function fetchCreditUsage(): Promise<CreditSummary> {
+  return api<CreditSummary>('/api/dashboard/credits');
 }
 
 export interface AccountPlatform {
@@ -86,10 +137,12 @@ export async function fetchAccountSummary(): Promise<AccountSummaryData> {
 }
 
 export async function generateContent(data: ContentGenerationRequest): Promise<ContentGenerationResponse> {
-  const result = await api<ContentGenerationResponse>('/api/ai/generate', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const result = await billed(() =>
+    api<ContentGenerationResponse>('/api/ai/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  );
 
   if (!result.name || !result.description || !result.platform_posts) {
     throw new Error('AI generation returned an incomplete response.');
@@ -104,10 +157,12 @@ export async function generateImage(data: { prompt?: string }): Promise<string> 
     throw new Error('An image prompt is required.');
   }
 
-  const result = await api<{ image_url: string }>('/api/ai/image', {
-    method: 'POST',
-    body: JSON.stringify({ prompt }),
-  });
+  const result = await billed(() =>
+    api<{ image_url: string }>('/api/ai/image', {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+    })
+  );
 
   if (!result.image_url) {
     throw new Error('No image URL returned.');
@@ -139,6 +194,9 @@ export async function createPost(data: WizardFormData): Promise<string> {
       media_urls: mediaUrls.length ? mediaUrls : undefined,
       tone: data.tone,
       scheduled_for: data.step_5?.schedule_at,
+      // Needed by the auto-publisher: which platforms to post to and the per-platform text
+      platforms: data.platform,
+      platform_variants: step1?.platform_posts,
       generated_by_ai: true,
       credits_used: 10,
     }),
