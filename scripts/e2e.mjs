@@ -15,6 +15,7 @@
  *                SKIP_AI=1 to skip the calls that hit the AI provider.
  */
 import { readFileSync, existsSync } from 'node:fs'
+import { createCipheriv, randomBytes } from 'node:crypto'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -33,6 +34,8 @@ const ANON = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY
 const MAILPIT = (env.MAILPIT_URL || 'http://127.0.0.1:54324').replace(/\/$/, '')
 const SKIP_AI = env.SKIP_AI === '1'
+const CRON_SECRET = env.CRON_SECRET
+const TOKEN_KEY = env.TOKEN_ENCRYPTION_KEY ? Buffer.from(env.TOKEN_ENCRYPTION_KEY, 'base64') : null
 
 if (!SB || !ANON || !SERVICE) {
   console.error('Missing Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY)')
@@ -159,6 +162,78 @@ async function signUp(label) {
 
   const s = verify.body
   return { email, id: s.user.id, access_token: s.access_token, refresh_token: s.refresh_token, subject }
+}
+
+
+/** Same format as lib/social/crypto.ts: v1:iv:tag:ciphertext (base64) */
+function encryptToken(plain) {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', TOKEN_KEY, iv)
+  const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
+  return ['v1', iv.toString('base64'), cipher.getAuthTag().toString('base64'), ct.toString('base64')].join(':')
+}
+
+async function cron(path, secret = CRON_SECRET) {
+  const res = await fetch(`${APP}${path}`, {
+    method: 'POST',
+    headers: secret ? { authorization: `Bearer ${secret}` } : {},
+    signal: AbortSignal.timeout(300_000),
+  })
+  return { status: res.status, body: await json(res) }
+}
+
+/** Newest email to an address after a time (optionally matching a subject), or null */
+async function findEmail(email, notBefore, subjectRe) {
+  for (let i = 0; i < 20; i++) {
+    const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`)
+    const list = await res.json()
+    const msg = (list.messages || []).find(
+      (m) => new Date(m.Created).getTime() >= notBefore - 2000 && (!subjectRe || subjectRe.test(m.Subject))
+    )
+    if (msg) return msg
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return null
+}
+
+/** Create a post, then move its schedule into the past (the API refuses past times) */
+async function duePost(user, platforms, extra = {}) {
+  const created = await app(user, '/api/posts', {
+    method: 'POST',
+    body: {
+      title: `Due post ${Date.now()}`,
+      platforms,
+      platform_variants: Object.fromEntries(platforms.map((p) => [p, { post: `Hello from ${p}`, hashtags: ['test'] }])),
+      scheduled_for: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    },
+  })
+  eq(created.status, 201, `create due post (${JSON.stringify(created.body)})`)
+  const id = created.body.data.id
+  const past = new Date(Date.now() - 60 * 1000).toISOString()
+  await admin(`/rest/v1/content_posts?id=eq.${id}`, { method: 'PATCH', body: { scheduled_for: past, ...extra } })
+  return id
+}
+
+/** Insert a connected account with an encrypted (fake) token */
+async function insertAccount(user, platform, { expiresInSec, refresh = false }) {
+  const res = await admin('/rest/v1/social_accounts', {
+    method: 'POST',
+    headers: { prefer: 'return=representation' },
+    body: {
+      user_id: user.id,
+      platform,
+      account_id: `e2e-${platform}-${Date.now()}`,
+      account_name: `E2E ${platform}`,
+      access_token: encryptToken('fake-access-token'),
+      refresh_token: refresh ? encryptToken('fake-refresh-token') : null,
+      token_expires_at: new Date(Date.now() + expiresInSec * 1000).toISOString(),
+      status: 'active',
+      is_connected: true,
+      is_default: true,
+    },
+  })
+  eq(res.status, 201, `insert account (${JSON.stringify(res.body)})`)
+  return res.body[0].id
 }
 
 // ---------------------------------------------------------------------------
@@ -483,11 +558,6 @@ await test('list and search posts', async () => {
   eq(injected.status, 200, 'filter injection not handled')
 })
 
-await test('due-soon scheduled post shows in notifications', async () => {
-  const res = await app(A, '/api/notifications')
-  assert(res.body.data.some((n) => n.href === `/posts/${postId}`), 'no reminder')
-})
-
 await test('update post copy, then unschedule it', async () => {
   const edited = { ...variants, LinkedIn: { ...variants.LinkedIn, post: 'Edited LinkedIn copy' } }
   const res = await app(A, `/api/posts/${postId}`, { method: 'PATCH', body: { platform_variants: edited } })
@@ -510,7 +580,8 @@ await test('mark published on LinkedIn with live URL', async () => {
     body: { platforms: [{ platform: 'LinkedIn', url: 'https://www.linkedin.com/feed/update/123' }] },
   })
   eq(res.status, 200, `status (${JSON.stringify(res.body)})`)
-  eq(res.body.data.status, 'published', 'post status')
+  // LinkedIn is live but X isn't yet
+  eq(res.body.data.status, 'partially_published', 'post status')
   eq(res.body.data.targets[0].external_url, 'https://www.linkedin.com/feed/update/123', 'url')
   const bad = await app(A, `/api/posts/${postId}/publish`, {
     method: 'POST',
@@ -557,6 +628,140 @@ await test('another user cannot read, edit or delete the post', async () => {
   eq((await app(B, `/api/posts/${postId}/metrics`, { method: 'POST', body: { platform: 'LinkedIn', metrics: { likes: 1 } } })).status, 404, 'metrics')
   const direct = await sb(`/rest/v1/content_posts?id=eq.${postId}&select=id`, { token: B.access_token })
   eq(direct.body.length, 0, 'visible via PostgREST')
+})
+
+section('Auto-publishing')
+
+await test('cron endpoints reject missing or wrong secrets', async () => {
+  for (const path of ['/api/cron/publish', '/api/cron/sync-analytics']) {
+    const none = await cron(path, null)
+    assert([401, 403].includes(none.status), `${path} without secret: ${none.status}`)
+    const wrong = await cron(path, 'not-the-secret')
+    assert([401, 403].includes(wrong.status), `${path} wrong secret: ${wrong.status}`)
+  }
+})
+
+await test('health: public ok, details only with the cron secret', async () => {
+  const pub = await fetch(`${APP}/api/health`)
+  const body = await pub.json()
+  eq(pub.status, 200, 'status')
+  eq(body.ok, true, 'ok')
+  assert(!('ai' in body), 'details leaked without secret')
+  const priv = await fetch(`${APP}/api/health`, { headers: { authorization: `Bearer ${CRON_SECRET}` } })
+  const detail = await priv.json()
+  eq(detail.email.provider, 'smtp', 'email provider')
+  eq(detail.publishing.encryptionKey, true, 'encryption key')
+})
+
+await test('connected-accounts API lists platforms; tokens are not readable by users', async () => {
+  const res = await app(A, '/api/social-accounts')
+  eq(res.status, 200, 'status')
+  eq(res.body.data.platforms.length, 6, 'platform count')
+  const direct = await sb('/rest/v1/social_accounts?select=access_token', { token: A.access_token })
+  assert(direct.status >= 400 || direct.body.length === 0, 'tokens readable by the user')
+})
+
+await test('users cannot write publish targets directly', async () => {
+  const res = await sb('/rest/v1/post_targets', {
+    method: 'POST',
+    token: A.access_token,
+    body: { post_id: postId, platform: 'X-Twitter', status: 'published', external_id: '123' },
+  })
+  assert(res.status >= 400, `insert allowed (${res.status})`)
+})
+
+await test('posts reject media that is not the user own upload', async () => {
+  const urls = [
+    'http://169.254.169.254/latest/meta-data/',
+    'https://example.com/a.png',
+    `${SB}/storage/v1/object/public/media/${B.id}/uploads/x.png`,
+  ]
+  for (const url of urls) {
+    const res = await app(A, '/api/posts', { method: 'POST', body: { content: 'x', media_urls: [url] } })
+    eq(res.status, 400, url)
+  }
+})
+
+let manualPostId
+await test('cron publishes due posts: no account -> needs manual + notification + SMTP email', async () => {
+  manualPostId = await duePost(A, ['LinkedIn', 'X-Twitter'])
+  const sentAt = Date.now()
+  const run = await cron('/api/cron/publish')
+  eq(run.status, 200, `cron (${JSON.stringify(run.body)})`)
+  const post = await app(A, `/api/posts/${manualPostId}`)
+  eq(post.body.data.status, 'failed', 'post status')
+  const targets = Object.fromEntries(post.body.data.targets.map((t) => [t.platform, t.status]))
+  eq(targets.LinkedIn, 'needs_manual', 'LinkedIn target')
+  eq(targets['X-Twitter'], 'needs_manual', 'X target')
+  const notes = await app(A, '/api/notifications')
+  assert(
+    notes.body.data.notifications.some((n) => n.type === 'needs_manual' && n.link === `/posts/${manualPostId}`),
+    'no notification'
+  )
+  assert(notes.body.data.unread > 0, 'unread count')
+  const mail = await findEmail(A.email, sentAt, /published manually/)
+  assert(mail, 'no email delivered over SMTP')
+})
+
+await test('a post that needs manual posting can still be marked published', async () => {
+  const res = await app(A, `/api/posts/${manualPostId}/publish`, {
+    method: 'POST',
+    body: { platforms: [{ platform: 'LinkedIn' }] },
+  })
+  eq(res.status, 200, 'mark published')
+  eq(res.body.data.status, 'partially_published', 'post status')
+})
+
+await test('notifications can be marked read', async () => {
+  const res = await app(A, '/api/notifications', { method: 'POST', body: { all: true } })
+  eq(res.status, 200, 'status')
+  eq(res.body.data.unread, 0, 'unread after mark all')
+})
+
+if (TOKEN_KEY) {
+  await test('expired connection -> account marked expired, reconnect notification', async () => {
+    const accountId = await insertAccount(A, 'X-Twitter', { expiresInSec: -3600 })
+    const id = await duePost(A, ['X-Twitter'])
+    const run = await cron('/api/cron/publish')
+    eq(run.status, 200, 'cron')
+    const post = await app(A, `/api/posts/${id}`)
+    eq(post.body.data.targets[0].status, 'failed', 'target')
+    const { body } = await admin(`/rest/v1/social_accounts?id=eq.${accountId}&select=status`)
+    eq(body[0].status, 'expired', 'account status')
+    const notes = await app(A, '/api/notifications')
+    assert(notes.body.data.notifications.some((n) => n.type === 'account_expired'), 'no reconnect notification')
+    await admin(`/rest/v1/social_accounts?id=eq.${accountId}`, { method: 'DELETE' })
+  })
+
+  await test('publisher refuses non-storage media before contacting the platform (SSRF)', async () => {
+    const accountId = await insertAccount(A, 'LinkedIn', { expiresInSec: 7 * 24 * 3600 })
+    const id = await duePost(A, ['LinkedIn'], { media_urls: ['http://169.254.169.254/latest/meta-data/'] })
+    const res = await app(A, `/api/posts/${id}/publish`, { method: 'POST', body: { mode: 'auto' } })
+    eq(res.status, 200, `publish now (${JSON.stringify(res.body).slice(0, 200)})`)
+    const target = res.body.data.targets.find((t) => t.platform === 'LinkedIn')
+    eq(target.status, 'failed', 'target status')
+    assert(/uploaded to ContentFlow/.test(target.error_message || ''), `error: ${target.error_message}`)
+    const { body } = await admin(`/rest/v1/social_accounts?id=eq.${accountId}&select=status`)
+    eq(body[0].status, 'active', 'account untouched (platform never called)')
+    await admin(`/rest/v1/social_accounts?id=eq.${accountId}`, { method: 'DELETE' })
+  })
+} else {
+  console.log('  - token tests skipped (TOKEN_ENCRYPTION_KEY not set)')
+}
+
+await test('overdue scheduled posts the publisher missed show as an alert', async () => {
+  const created = await app(A, '/api/posts', {
+    method: 'POST',
+    body: { content: 'Overdue', scheduled_for: new Date(Date.now() + 3600_000).toISOString() },
+  })
+  const id = created.body.data.id
+  await admin(`/rest/v1/content_posts?id=eq.${id}`, {
+    method: 'PATCH',
+    body: { scheduled_for: new Date(Date.now() - 30 * 60_000).toISOString() },
+  })
+  const notes = await app(A, '/api/notifications')
+  assert(notes.body.data.alerts.some((a) => a.link === `/posts/${id}`), 'no overdue alert')
+  await app(A, `/api/posts/${id}`, { method: 'DELETE' })
 })
 
 section('Calendar, feedback, media')
@@ -630,6 +835,33 @@ await test('webhook rejects unsigned requests', async () => {
   assert(res.status === 400 || res.status === 500, `status ${res.status}`)
 })
 
+await test('Stripe webhook processes each event exactly once', async () => {
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    console.log('      (skipped: STRIPE_WEBHOOK_SECRET not set)')
+    return
+  }
+  const { default: Stripe } = await import('stripe')
+  const stripe = new Stripe('sk_test_dummy')
+  const payload = JSON.stringify({
+    id: `evt_e2e_${Date.now()}`,
+    object: 'event',
+    type: 'customer.created',
+    data: { object: {} },
+  })
+  const header = stripe.webhooks.generateTestHeaderString({ payload, secret: env.STRIPE_WEBHOOK_SECRET })
+  const send = () =>
+    fetch(`${APP}/api/billing/webhook`, {
+      method: 'POST',
+      headers: { 'stripe-signature': header, 'content-type': 'application/json' },
+      body: payload,
+    }).then((r) => r.json())
+  const first = await send()
+  eq(first.received, true, 'first delivery')
+  assert(!first.duplicate, 'first delivery marked duplicate')
+  const second = await send()
+  eq(second.duplicate, true, 'redelivery not detected')
+})
+
 await test('plan upgrade (as applied by the Stripe webhook) grants the plan allowance', async () => {
   const res = await admin('/rest/v1/rpc/apply_plan', {
     method: 'POST',
@@ -661,7 +893,9 @@ await test('deleting an account removes the user and all their data', async () =
   const before = await admin(`/rest/v1/content_posts?user_id=eq.${A.id}&select=id`)
   assert(before.body.length > 0, 'expected posts before delete')
 
-  const res = await app(A, '/api/account', { method: 'DELETE' })
+  const unconfirmed = await app(A, '/api/account', { method: 'DELETE', body: {} })
+  eq(unconfirmed.status, 400, 'deletion without confirmation')
+  const res = await app(A, '/api/account', { method: 'DELETE', body: { confirm: 'DELETE' } })
   eq(res.status, 200, `status (${JSON.stringify(res.body)})`)
 
   const user = await admin(`/auth/v1/admin/users/${A.id}`)

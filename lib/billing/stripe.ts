@@ -61,14 +61,35 @@ export async function getOrCreateCustomer(userId: string, email: string | undefi
   return customer.id
 }
 
-async function userIdForCustomer(customerId: string): Promise<string | null> {
+/**
+ * User linked to a Stripe customer: the stripe_customers mapping, else the
+ * userId we stamped on the customer / checkout session (never by email).
+ * A found metadata link is saved so later events resolve directly.
+ */
+async function userIdForCustomer(customerId: string, hintUserId?: string | null): Promise<string | null> {
   const admin = createAdminClient()
   const { data } = await admin
     .from('stripe_customers')
     .select('user_id')
     .eq('customer_id', customerId)
     .maybeSingle()
-  return data?.user_id ?? null
+  if (data?.user_id) return data.user_id
+
+  let userId = hintUserId || null
+  if (!userId) {
+    const customer = await requireStripe().customers.retrieve(customerId)
+    if (!customer.deleted) userId = customer.metadata?.userId || customer.metadata?.user_id || null
+  }
+  if (!userId) return null
+
+  const { data: profile } = await admin.from('profiles').select('id').eq('id', userId).maybeSingle()
+  if (!profile) return null
+
+  const { error } = await admin
+    .from('stripe_customers')
+    .upsert({ user_id: userId, customer_id: customerId }, { onConflict: 'user_id' })
+  if (error) console.error('Could not save Stripe customer mapping:', error.message)
+  return userId
 }
 
 const ACTIVE_STATUSES: Stripe.Subscription.Status[] = ['active', 'trialing', 'past_due']
@@ -85,12 +106,12 @@ function planFromSubscription(sub: Stripe.Subscription | undefined): PlanId {
  */
 export async function syncCustomer(
   customerId: string,
-  options: { resetCredits?: boolean; reason?: string } = {}
+  options: { resetCredits?: boolean; reason?: string; userIdHint?: string | null } = {}
 ): Promise<PlanId | null> {
   const stripe = requireStripe()
   const admin = createAdminClient()
 
-  const userId = await userIdForCustomer(customerId)
+  const userId = await userIdForCustomer(customerId, options.userIdHint)
   if (!userId) {
     console.warn(`Stripe customer ${customerId} has no ContentFlow user`)
     return null
@@ -128,13 +149,18 @@ export async function syncCustomer(
 
   const { data: profile } = await admin.from('profiles').select('plan').eq('id', userId).single()
 
-  // Apply on plan change, or on a renewal (reset to the new month's allowance)
+  // Apply on plan change, or on a renewal (reset to the new month's allowance).
+  // When a paid subscription ends, the balance resets to the free allowance so
+  // unused paid credits don't outlive the subscription.
+  const ended = plan === 'free' && profile?.plan !== 'free'
   if (profile?.plan !== plan || options.resetCredits) {
     const { error } = await admin.rpc('apply_plan', {
       p_user: userId,
       p_plan: plan,
-      p_reset_credits: Boolean(options.resetCredits) && plan !== 'free',
-      p_description: options.reason ?? `Plan changed to ${getPlan(plan).name}`,
+      p_reset_credits: ended || (Boolean(options.resetCredits) && plan !== 'free'),
+      p_description:
+        options.reason ??
+        (ended ? `Subscription ended (was ${getPlan(profile?.plan).name})` : `Plan changed to ${getPlan(plan).name}`),
     })
     if (error) throw error
   }

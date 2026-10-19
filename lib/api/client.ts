@@ -61,9 +61,16 @@ export interface Post {
 export interface PostTarget {
   id: string
   platform: string
+  /** pending | publishing | published | failed | needs_manual */
   status: string
   published_at: string | null
   external_url: string | null
+  error_message: string | null
+  social_account_id?: string | null
+  external_id?: string | null
+  attempts?: number | null
+  next_attempt_at?: string | null
+  last_attempt_at?: string | null
 }
 
 export interface PostMetric {
@@ -115,7 +122,7 @@ export interface DashboardPost {
   id: string
   thumbnail: string
   title: string
-  status: 'posted' | 'scheduled' | 'draft'
+  status: string
   platforms: string[]
   date: string
   engagement?: { likes: number; comments: number; reach: number }

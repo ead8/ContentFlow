@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createPost, getUserPosts } from '@/lib/services/content-posts'
 import { apiError } from '@/lib/api/error'
 
+const POST_STATUSES = ['draft', 'scheduled', 'publishing', 'published', 'partially_published', 'failed']
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || undefined
     const posts = await getUserPosts({
-      status: status && ['draft', 'scheduled', 'published'].includes(status) ? status : undefined,
+      status: status && POST_STATUSES.includes(status) ? status : undefined,
       search: searchParams.get('q') || undefined,
       limit: parseInt(searchParams.get('limit') || '20', 10) || 20,
       offset: parseInt(searchParams.get('offset') || '0', 10) || 0,

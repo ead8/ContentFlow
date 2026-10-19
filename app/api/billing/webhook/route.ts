@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type Stripe from 'stripe'
 import { invoiceSubscriptionId, requireStripe, syncCustomer } from '@/lib/billing/stripe'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,12 +37,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // Exactly-once: record the event id first; a redelivered or concurrent
+  // delivery hits the primary key and is skipped.
+  const admin = createAdminClient()
+  const { error: claimError } = await admin
+    .from('processed_stripe_events')
+    .insert({ id: event.id, type: event.type })
+  if (claimError) {
+    if (claimError.code === '23505') return NextResponse.json({ received: true, duplicate: true })
+    console.error('Could not record Stripe event:', claimError.message)
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object
         const id = customerId(session)
-        if (id && session.mode === 'subscription') await syncCustomer(id)
+        if (id && session.mode === 'subscription') {
+          await syncCustomer(id, { userIdHint: session.client_reference_id })
+        }
         break
       }
       case 'customer.subscription.created':
@@ -69,7 +84,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error(`Error handling Stripe event ${event.type} (${event.id}):`, err)
-    // A 500 makes Stripe retry the event
+    // Forget the event so Stripe's retry is processed; a 500 triggers the retry
+    await admin.from('processed_stripe_events').delete().eq('id', event.id)
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
   }
 

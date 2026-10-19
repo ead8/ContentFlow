@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { deletePost, fetchPosts, type Post } from "@/lib/api/client"
 import { platformLabel } from "@/lib/platforms"
 import { StatusBadge } from "./status-badge"
+import { POST_STATUS_FILTERS } from "./post-status-badge"
 
 const PAGE_SIZE = 10
 
@@ -107,9 +108,9 @@ const PostsTable = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="draft">Drafts</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
+              {POST_STATUS_FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

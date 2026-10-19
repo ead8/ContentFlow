@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+import { Hand, Loader2, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -12,6 +13,8 @@ import { Input } from '../ui/input';
 import { Calendar } from '../ui/calendar';
 import { WizardFormData } from './MultiStep';
 import { createPost } from '@/lib/api/client';
+import { platformLabel } from '@/lib/platforms';
+import { type AccountRow, connectUrl, fetchSocialAccounts, publishingAccountFor } from '@/components/settings/social-accounts-api';
 
 interface ScheduleConfirmProps {
   data: WizardFormData;
@@ -35,6 +38,27 @@ const ScheduleConfirm = ({ data, setBusy }: ScheduleConfirmProps) => {
   const [date, setDate] = useState<Date | undefined>();
   const [time, setTime] = useState('09:00');
   const [saving, setSaving] = useState<'draft' | 'schedule' | null>(null);
+  /** null = loading, undefined = could not load */
+  const [accounts, setAccounts] = useState<AccountRow[] | null | undefined>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      fetchSocialAccounts()
+        .then((d) => !cancelled && setAccounts(d.accounts))
+        .catch(() => !cancelled && setAccounts((prev) => prev ?? undefined));
+    load();
+    // Refresh after the user connects an account in another tab
+    window.addEventListener('focus', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', load);
+    };
+  }, []);
+
+  const platforms = data.platform ?? [];
+  const autoPlatforms = accounts ? platforms.filter((p) => publishingAccountFor(accounts, p)) : [];
+  const manualPlatforms = accounts ? platforms.filter((p) => !publishingAccountFor(accounts, p)) : [];
 
   const scheduledAt = date ? combine(date, time) : null;
   const inPast = scheduledAt ? scheduledAt.getTime() <= Date.now() : false;
@@ -63,7 +87,9 @@ const ScheduleConfirm = ({ data, setBusy }: ScheduleConfirmProps) => {
         title: mode === 'schedule' ? 'Post scheduled' : 'Draft saved',
         description:
           mode === 'schedule'
-            ? `We'll remind you on ${format(scheduledAt!, "MMM d 'at' h:mm a")}.`
+            ? autoPlatforms.length > 0
+              ? `It will publish automatically to ${autoPlatforms.map(platformLabel).join(', ')} on ${format(scheduledAt!, "MMM d 'at' h:mm a")}.`
+              : `Scheduled for ${format(scheduledAt!, "MMM d 'at' h:mm a")}. You'll get a reminder to post it.`
             : 'You can finish and publish it from My Posts.',
       });
       router.push(`/posts/${post.id}`);
@@ -111,10 +137,41 @@ const ScheduleConfirm = ({ data, setBusy }: ScheduleConfirmProps) => {
                   : `Scheduled for ${format(scheduledAt, "EEEE, MMMM d 'at' h:mm a")}`}
               </p>
             )}
-            <p className="text-sm text-muted-foreground">
-              When it&apos;s time, the post appears in your notifications with one-click copy and
-              links to each platform so you can publish it.
-            </p>
+            {accounts && platforms.length > 0 && (
+              <div className="space-y-2 rounded-md border p-3 text-sm">
+                {autoPlatforms.length > 0 && (
+                  <p className="flex items-start gap-2">
+                    <Zap className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                    <span>
+                      Publishes automatically to <strong>{autoPlatforms.map(platformLabel).join(', ')}</strong>.
+                    </span>
+                  </p>
+                )}
+                {manualPlatforms.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Hand className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
+                    <div className="space-y-1">
+                      <p>
+                        No connected account for <strong>{manualPlatforms.map(platformLabel).join(', ')}</strong>. You&apos;ll
+                        get a reminder to post these by hand, or connect them:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {manualPlatforms.map((p) => (
+                          <Link
+                            key={p}
+                            href={connectUrl(p, '/settings')}
+                            target="_blank"
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            Connect {platformLabel(p)}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

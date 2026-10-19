@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, LogOut, Save, KeyRound, Trash2 } from "lucide-react"
+import { Loader2, LogOut, Save, KeyRound } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { deleteAccount } from "@/lib/api/client"
+import { ConnectedAccounts } from "@/components/settings/connected-accounts"
+import { DeleteAccountCard } from "@/components/settings/delete-account"
 import { useAuth } from "@/components/auth-provider"
 
 export default function SettingsPage() {
@@ -22,8 +23,6 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [savingPassword, setSavingPassword] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState("")
-  const [deleting, setDeleting] = useState(false)
   const { signOut, refreshProfile } = useAuth()
 
   useEffect(() => {
@@ -93,25 +92,14 @@ export default function SettingsPage() {
 
   const handleSignOut = () => signOut()
 
-  const handleDeleteAccount = async () => {
-    setDeleting(true)
-    try {
-      await deleteAccount()
-      toast({ title: "Account deleted", description: "Your account and content have been removed." })
-      router.push("/")
-      router.refresh()
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Could not delete account", description: e.message })
-      setDeleting(false)
-    }
-  }
+
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
 
       <Card>
@@ -139,6 +127,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <ConnectedAccounts />
 
       <Card>
         <CardHeader>
@@ -184,28 +174,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-destructive/40">
-        <CardHeader>
-          <CardTitle className="text-destructive">Delete account</CardTitle>
-          <CardDescription>
-            Permanently delete your account, posts, media and history. Any paid subscription is
-            cancelled. This cannot be undone.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Label htmlFor="deleteConfirm">Type DELETE to confirm</Label>
-          <Input
-            id="deleteConfirm"
-            value={deleteConfirm}
-            onChange={(e) => setDeleteConfirm(e.target.value)}
-            autoComplete="off"
-          />
-          <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteConfirm !== "DELETE" || deleting}>
-            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-            Delete my account
-          </Button>
-        </CardContent>
-      </Card>
+      <DeleteAccountCard />
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { fetchPostPerformance, type DashboardPost } from "@/lib/api/client"
 import { platformLabel } from "@/lib/platforms"
+import { PostStatusBadge } from "@/components/posts/post-status-badge"
 
 export function PostPerformanceOverview() {
   const [posts, setPosts] = useState<DashboardPost[] | null>(null)
@@ -55,12 +56,7 @@ export function PostPerformanceOverview() {
             />
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant={post.status === "posted" ? "default" : post.status === "scheduled" ? "secondary" : "outline"}
-                  className="capitalize"
-                >
-                  {post.status === "posted" ? "Published" : post.status}
-                </Badge>
+                <PostStatusBadge status={post.status === "posted" ? "published" : post.status} />
                 {post.platforms.slice(0, 3).map((p) => (
                   <Badge key={p} variant="outline">{platformLabel(p)}</Badge>
                 ))}
