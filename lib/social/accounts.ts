@@ -17,7 +17,12 @@ import {
  */
 
 const TABLE = 'social_accounts'
-const REFRESH_WINDOW_MS = 5 * 60 * 1000
+/** Refresh this long before expiry: longer than the longest publish run (maxDuration 300 s) */
+const REFRESH_WINDOW_MS = 30 * 60 * 1000
+/** How long a worker may hold the refresh lock */
+const REFRESH_LOCK_SECONDS = 60
+/** How long a worker waits for another worker's refresh to land */
+const REFRESH_WAIT_MS = 20_000
 
 export type SocialAccountStatus = 'active' | 'expired' | 'error'
 
@@ -202,7 +207,31 @@ async function loadWithFreshTokens(admin: SupabaseClient, row: SocialAccountRow)
 
   const expiresAt = account.tokenExpiresAt
   if (!expiresAt || expiresAt.getTime() - Date.now() > REFRESH_WINDOW_MS) return account
+  return refreshAccountTokens(admin, row, account)
+}
 
+function isFreshRow(r: SocialAccountRow | null, previousToken: string): boolean {
+  if (!r || r.status !== 'active' || !isEncrypted(r) || r.access_token === previousToken) return false
+  const exp = parseDate(r.token_expires_at)
+  return !exp || exp.getTime() - Date.now() > REFRESH_WINDOW_MS
+}
+
+async function readRow(admin: SupabaseClient, id: string): Promise<SocialAccountRow | null> {
+  const { data } = await admin.from(TABLE).select(ROW_COLUMNS).eq('id', id).maybeSingle()
+  return (data as SocialAccountRow | null) ?? null
+}
+
+/**
+ * Refresh an account's tokens, serialised per account: providers with
+ * rotating refresh tokens (X, TikTok) invalidate the old one on use, so
+ * concurrent refreshes must not race. Workers that don't get the lock wait
+ * for the winner's tokens instead of refreshing themselves.
+ */
+async function refreshAccountTokens(
+  admin: SupabaseClient,
+  row: SocialAccountRow,
+  account: SocialAccount
+): Promise<SocialAccount> {
   const adapter = getAdapter(account.platform)
   const refreshExpiresAt = parseDate(row.refresh_token_expires_at)
   const canRefresh =
@@ -215,34 +244,63 @@ async function loadWithFreshTokens(admin: SupabaseClient, row: SocialAccountRow)
     throw new PlatformError(reconnectMessage(row.platform), { reauthRequired: true })
   }
 
+  const { data: locked, error: lockError } = await admin.rpc('try_lock_token_refresh', {
+    p_account: row.id,
+    p_seconds: REFRESH_LOCK_SECONDS,
+  })
+  if (lockError) throw lockError
+
+  if (!locked) {
+    // Another worker is refreshing: wait for its result
+    const deadline = Date.now() + REFRESH_WAIT_MS
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 1000))
+      const latest = await readRow(admin, row.id)
+      if (latest && isFreshRow(latest, row.access_token)) return rowToAccount(latest)
+      if (latest && latest.status !== 'active') {
+        throw new PlatformError(reconnectMessage(row.platform), { reauthRequired: true })
+      }
+    }
+    throw new PlatformError(`${label(row.platform)} token refresh is in progress. Please try again.`, { retryable: true })
+  }
+
+  // We hold the lock; re-read in case a refresh landed just before we got it
+  const current = await readRow(admin, row.id)
+  if (current && isFreshRow(current, row.access_token)) {
+    await admin.from(TABLE).update({ refresh_locked_until: null }).eq('id', row.id)
+    return rowToAccount(current)
+  }
+
   let fresh: OAuthTokens
   try {
-    fresh = await adapter.refreshTokens!(account.refreshToken!)
+    fresh = await adapter!.refreshTokens!(account.refreshToken!)
   } catch (err) {
     const retryable =
       err instanceof PlatformError ? err.retryable && !err.reauthRequired : !(err instanceof PlatformError)
     if (retryable) {
+      await admin.from(TABLE).update({ refresh_locked_until: null }).eq('id', row.id)
       // Network blip / provider outage: try again later, keep the account active
-      const message = err instanceof PlatformError ? err.message : `${label(row.platform)} token refresh failed. Please try again.`
+      const message =
+        err instanceof PlatformError ? err.message : `${label(row.platform)} token refresh failed. Please try again.`
       throw new PlatformError(message, { retryable: true, status: err instanceof PlatformError ? err.status : undefined })
     }
 
-    // Another worker may have refreshed (and rotated) the token concurrently
-    const { data: latest } = await admin.from(TABLE).select(ROW_COLUMNS).eq('id', row.id).maybeSingle()
-    const latestRow = latest as SocialAccountRow | null
-    const latestExp = parseDate(latestRow?.token_expires_at)
-    if (
-      latestRow &&
-      latestRow.status === 'active' &&
-      latestRow.access_token !== row.access_token &&
-      isEncrypted(latestRow) &&
-      (!latestExp || latestExp.getTime() - Date.now() > REFRESH_WINDOW_MS)
-    ) {
-      return rowToAccount(latestRow)
-    }
-
-    console.error(`Token refresh failed for ${row.platform} account ${row.id}:`, err instanceof Error ? err.message : 'unknown error')
-    await markAccountStatus(row.id, 'expired', reconnectMessage(row.platform))
+    console.error(
+      `Token refresh failed for ${row.platform} account ${row.id}:`,
+      err instanceof Error ? err.message : 'unknown error'
+    )
+    // Only expire the account if nobody changed it since we read it
+    await admin
+      .from(TABLE)
+      .update({
+        status: 'expired',
+        is_connected: false,
+        last_error: reconnectMessage(row.platform),
+        refresh_locked_until: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id)
+      .eq('access_token', row.access_token)
     throw new PlatformError(reconnectMessage(row.platform), { reauthRequired: true })
   }
 
@@ -254,6 +312,7 @@ async function loadWithFreshTokens(admin: SupabaseClient, row: SocialAccountRow)
     status: 'active',
     last_error: null,
     is_connected: true,
+    refresh_locked_until: null,
     updated_at: new Date().toISOString(),
   }
   // Persist the refresh-token expiry when the provider sends one. A rotated
@@ -266,8 +325,19 @@ async function loadWithFreshTokens(admin: SupabaseClient, row: SocialAccountRow)
   }
   if (fresh.scopes?.length) update.scopes = fresh.scopes
 
-  const { error } = await admin.from(TABLE).update(update).eq('id', row.id)
-  if (error) throw error
+  // The old refresh token may already be invalid (rotation), so losing this
+  // write would lock the user out: retry before giving up.
+  let saveError: unknown = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error } = await admin.from(TABLE).update(update).eq('id', row.id)
+    if (!error) {
+      saveError = null
+      break
+    }
+    saveError = error
+    await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+  }
+  if (saveError) throw saveError
 
   return {
     ...account,
@@ -289,14 +359,15 @@ export async function getPublishingAccount(userId: string, platform: Platform): 
     .select(ROW_COLUMNS)
     .eq('user_id', userId)
     .eq('platform', platform)
-    .eq('status', 'active')
     .order('is_default', { ascending: false })
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
   if (error) throw error
-  if (!data) return null
-  return loadWithFreshTokens(admin, data as SocialAccountRow)
+  const rows = (data || []) as SocialAccountRow[]
+  if (rows.length === 0) return null
+  const active = rows.find((r) => r.status === 'active')
+  // A connected-but-expired account needs a reconnect, not "connect one"
+  if (!active) throw new PlatformError(reconnectMessage(platform), { reauthRequired: true })
+  return loadWithFreshTokens(admin, active)
 }
 
 /** An active account by id (any user), with fresh tokens; null if not active */

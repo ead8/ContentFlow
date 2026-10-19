@@ -73,6 +73,12 @@ export interface PublishRequest {
   mediaUrls: string[]
   /** Title where the platform has one (YouTube) */
   title?: string | null
+  /**
+   * Adapters call this immediately before sending the request that creates
+   * the post. Any failure after it is ambiguous (the post may exist), so the
+   * publisher never retries it automatically, which would double-post.
+   */
+  commit?: () => void
 }
 
 export interface PublishResult {

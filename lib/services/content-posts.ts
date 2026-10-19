@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireUserId } from './auth'
 import { PLATFORMS } from '@/lib/platforms'
 import type { PlatformPost } from '@/models/content'
 import { ValidationError } from '@/lib/api/error'
+import { mediaUrlProblem } from '@/lib/social/media-url'
 
 export type PostStatus =
   | 'draft'
@@ -97,11 +99,16 @@ function sanitizeVariants(input: unknown): Record<string, PlatformPost> {
   return out
 }
 
-function sanitizeMediaUrls(input: unknown): string[] | undefined {
+/** Media must be the owner's own uploads (see lib/social/media-url.ts) */
+function sanitizeMediaUrls(input: unknown, ownerId: string): string[] | undefined {
   if (input === undefined || input === null) return undefined
   if (!Array.isArray(input)) throw new ValidationError('media_urls must be an array')
-  const urls = input.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u))
+  const urls = input.filter((u): u is string => typeof u === 'string' && u.length > 0)
   if (urls.length > 10) throw new ValidationError('A post can have at most 10 media files')
+  for (const u of urls) {
+    const problem = mediaUrlProblem(u, ownerId)
+    if (problem) throw new ValidationError(problem)
+  }
   return urls
 }
 
@@ -158,7 +165,7 @@ export async function createPost(input: CreatePostInput): Promise<ContentPost> {
       content,
       title: input.title?.slice(0, 300) || null,
       description: input.description?.slice(0, 2000) || null,
-      media_urls: sanitizeMediaUrls(input.media_urls) ?? null,
+      media_urls: sanitizeMediaUrls(input.media_urls, userId) ?? null,
       content_type: 'text',
       tone: (input.tone || 'professional').toLowerCase().slice(0, 50),
       language: (input.language || 'en').slice(0, 10),
@@ -293,7 +300,7 @@ export async function updatePost(postId: string, input: UpdatePostInput): Promis
     if (content.length > MAX_CONTENT) throw new ValidationError('Content is too long')
     updates.content = content
   }
-  if (input.media_urls !== undefined) updates.media_urls = sanitizeMediaUrls(input.media_urls) ?? null
+  if (input.media_urls !== undefined) updates.media_urls = sanitizeMediaUrls(input.media_urls, userId) ?? null
   if (input.platform_variants !== undefined) {
     updates.platform_variants = sanitizeVariants(input.platform_variants)
   }
@@ -325,7 +332,8 @@ export async function updatePost(postId: string, input: UpdatePostInput): Promis
   if (resetTargets || updates.status === 'draft') {
     // Pending retries belong to the old schedule; a draft is never retried.
     // Done first so the publisher never sees the new schedule with old state.
-    const { error: targetError } = await supabase
+    // post_targets are server-written only (ownership checked above)
+    const { error: targetError } = await createAdminClient()
       .from('post_targets')
       .update(
         resetTargets
@@ -385,7 +393,8 @@ export async function markPublished(
   if (post.status === 'publishing') throw new ValidationError(POST_BUSY_MESSAGE)
 
   const now = new Date().toISOString()
-  const { error: targetError } = await supabase.from('post_targets').upsert(
+  // post_targets are server-written only (ownership checked above)
+  const { error: targetError } = await createAdminClient().from('post_targets').upsert(
     valid.map((e) => ({
       post_id: postId,
       platform: e.platform,
@@ -399,15 +408,28 @@ export async function markPublished(
   )
   if (targetError) throw targetError
 
-  if (post.status !== 'published') {
-    const { error } = await supabase
-      .from('content_posts')
-      .update({ status: 'published', published_at: now })
-      .eq('id', postId)
-      .eq('user_id', userId)
-      .neq('status', 'publishing')
-    if (error) throw error
-  }
+  // Published only when every platform of the post is live
+  const [{ data: postRow }, { data: liveTargets }] = await Promise.all([
+    supabase.from('content_posts').select('platforms, platform_variants, published_at').eq('id', postId).single(),
+    supabase.from('post_targets').select('platform').eq('post_id', postId).eq('status', 'published'),
+  ])
+  const all = new Set<string>([
+    ...((postRow?.platforms as string[] | null) ?? []),
+    ...Object.keys((postRow?.platform_variants as Record<string, unknown> | null) ?? {}),
+  ])
+  const live = new Set((liveTargets || []).map((t) => t.platform))
+  const complete = all.size === 0 || Array.from(all).every((p) => live.has(p))
+
+  const { error: statusError } = await supabase
+    .from('content_posts')
+    .update({
+      status: complete ? 'published' : 'partially_published',
+      published_at: postRow?.published_at ?? now,
+    })
+    .eq('id', postId)
+    .eq('user_id', userId)
+    .neq('status', 'publishing')
+  if (statusError) throw statusError
 
   const updated = await getPost(postId)
   if (!updated) throw new Error('Post not found')

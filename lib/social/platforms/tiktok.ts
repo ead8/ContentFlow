@@ -39,7 +39,7 @@ const DEFAULT_SCOPES = [
 ]
 
 const CAPTION_LIMIT = 2200
-const MAX_VIDEO_BYTES = 1024 * 1024 * 1024 // 1 GiB (TikTok itself allows 4 GB)
+const MAX_VIDEO_BYTES = 250 * 1024 * 1024 // whole file is buffered in memory; uploads are capped at 50 MB by storage
 /** Files up to this size are sent as one chunk (TikTok: max 64 MB per chunk) */
 const SINGLE_CHUNK_MAX = 64 * 1000 * 1000
 /** Chunk size for larger files (TikTok: 5–64 MB, last chunk may be up to 128 MB) */
@@ -129,7 +129,7 @@ interface DownloadedVideo {
 async function downloadVideo(url: string): Promise<DownloadedVideo> {
   let res: Response
   try {
-    res = await fetch(url, { signal: AbortSignal.timeout(5 * 60_000) })
+    res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(5 * 60_000) })
   } catch {
     throw new PlatformError('Could not download the video file for TikTok (network error).', {
       retryable: true,
@@ -604,6 +604,8 @@ export const tiktokAdapter: PlatformAdapter = {
     for (let i = 0; i < chunkCount; i++) {
       const start = i * chunkSize
       const end = i === chunkCount - 1 ? video.size : start + chunkSize
+      // TikTok creates the post once the last chunk lands
+      if (i === chunkCount - 1) req.commit?.()
       await putChunk(uploadUrl, video.data.subarray(start, end), start, video.size, mime)
     }
 

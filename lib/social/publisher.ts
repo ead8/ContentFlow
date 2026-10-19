@@ -1,3 +1,4 @@
+import { mediaUrlProblem } from './media-url'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PLATFORMS, composeVariantText, platformLabel, type Platform } from '@/lib/platforms'
 import { ValidationError } from '@/lib/api/error'
@@ -24,6 +25,8 @@ export const MAX_PUBLISH_ATTEMPTS = 3
 const STALE_CLAIM_MS = 15 * 60_000
 /** Posts published in parallel by one cron run */
 const CYCLE_CONCURRENCY = 3
+/** Stop starting new posts after this long; in-flight uploads get the rest of maxDuration (300 s) */
+const CYCLE_BUDGET_MS = 180_000
 
 const TARGET_COLUMNS =
   'id, post_id, platform, status, social_account_id, external_id, external_url, attempts, next_attempt_at, last_attempt_at, published_at, error_message'
@@ -114,8 +117,18 @@ function postName(post: ClaimedPost): string {
 
 function errorText(err: unknown, platform: Platform): string {
   if (err instanceof PlatformError) return err.message.slice(0, 500)
-  const message = err instanceof Error ? err.message : String(err)
-  return `${platformLabel(platform)} publish failed: ${message}`.slice(0, 500)
+  // Internal errors (database, configuration) are logged, never shown/emailed
+  console.error(`publisher: ${platformLabel(platform)} internal error:`, err)
+  return `${platformLabel(platform)} publish failed because of a temporary problem on our side. Please try again.`
+}
+
+/** Failure after the create request was sent: the post may already be live */
+function ambiguousError(platform: Platform): PlatformError {
+  const label = platformLabel(platform)
+  return new PlatformError(
+    `Publishing to ${label} was interrupted and the post may already be live. Check your ${label} profile; ` +
+      `use Retry only if it isn't there, or mark it as published.`
+  )
 }
 
 async function upsertTarget(
@@ -191,8 +204,10 @@ async function publishTarget(
     return { platform, kind: 'needs_manual', error }
   }
 
-  // 2. Can this post go to this platform at all?
-  const invalid = adapter.validate?.({ text, mediaUrls, title }) ?? null
+  // 2. Can this post go to this platform at all? Media must be the owner's
+  //    own uploads (the server downloads it; see lib/social/media-url.ts).
+  const mediaProblem = mediaUrls.map((u) => mediaUrlProblem(u, post.user_id)).find(Boolean) ?? null
+  const invalid = mediaProblem ?? adapter.validate?.({ text, mediaUrls, title }) ?? null
   if (invalid) {
     await upsertTarget(admin, post.id, platform, {
       status: 'failed',
@@ -216,9 +231,32 @@ async function publishTarget(
 
   // 4. Publish
   let result: { externalId: string; url: string | null }
+  let committed = false
   try {
-    result = await adapter.publish({ account, text, mediaUrls, title })
-  } catch (err) {
+    result = await adapter.publish({
+      account,
+      text,
+      mediaUrls,
+      title,
+      commit: () => {
+        committed = true
+      },
+    })
+  } catch (rawErr) {
+    let err = rawErr
+    // After the create request went out, only an explicit refusal proves no
+    // post was made (rate limit, auth, validation). Anything else, including
+    // timeouts, network errors, 5xx and unparseable responses, is ambiguous,
+    // and an automatic retry could double-post.
+    if (committed) {
+      const provenNotCreated =
+        err instanceof PlatformError &&
+        (err.reauthRequired || err.status === 429 || (!err.retryable && (err.status ?? 0) >= 400 && (err.status ?? 0) < 500))
+      if (!provenNotCreated) {
+        console.error(`publisher: post ${post.id} on ${label} failed after the create request:`, rawErr)
+        err = ambiguousError(platform)
+      }
+    }
     if (err instanceof PlatformError && err.reauthRequired) {
       const error = errorText(err, platform)
       try {
@@ -342,10 +380,13 @@ export async function publishClaimedPost(
   // A target left in 'publishing' means an earlier run died mid-request: the
   // provider may already have the post. Never re-send it automatically (a
   // duplicate on a real account is worse than a missed one); ask the user.
+  // A manual retry of one platform resolves the others' interrupted rows too,
+  // so the post isn't stuck with a 'publishing' target nobody will pick up.
   const interrupted: TargetResult[] = []
-  if (!manual) {
+  {
     for (const t of Array.from(targets.values())) {
       if (t.status !== 'publishing' || !isPlatform(t.platform)) continue
+      if (manual && onlyPlatforms!.includes(t.platform)) continue
       const label = platformLabel(t.platform)
       await upsertTarget(admin, post.id, t.platform, {
         status: 'failed',
@@ -638,23 +679,41 @@ async function publishClaimedPostSafe(post: ClaimedPost, onlyPlatforms?: string[
  * and publish them.
  */
 export async function runPublishCycle(
-  limit = 20
-): Promise<{ claimed: number; published: number; failed: number; needsManual: number }> {
+  limit = 6
+): Promise<{ claimed: number; published: number; failed: number; needsManual: number; deferred: number }> {
   const admin = createAdminClient()
+  const deadline = Date.now() + CYCLE_BUDGET_MS
   const { data, error } = await admin.rpc('claim_due_posts', {
     p_limit: Math.min(Math.max(Math.floor(limit), 1), 100),
   })
   if (error) throw error
 
   const posts = (data || []) as ClaimedPost[]
-  const counts = { claimed: posts.length, published: 0, failed: 0, needsManual: 0 }
+  const counts = { claimed: posts.length, published: 0, failed: 0, needsManual: 0, deferred: 0 }
+  const deferred: string[] = []
 
   await runPool(posts, CYCLE_CONCURRENCY, async (post) => {
+    if (Date.now() > deadline) {
+      deferred.push(post.id)
+      return
+    }
     const outcome = await publishClaimedPostSafe(post)
     if (outcome.status === 'published') counts.published++
     else if (outcome.status === 'failed' || outcome.status === 'partially_published') counts.failed++
     if (outcome.needsManual.length > 0) counts.needsManual++
   })
+
+  // Hand unstarted claims straight back: backdating the claim makes the next
+  // run's stale-claim rule pick them up (none of their targets were touched).
+  if (deferred.length > 0) {
+    counts.deferred = deferred.length
+    const { error: releaseError } = await admin
+      .from('content_posts')
+      .update({ publish_claimed_at: new Date(Date.now() - STALE_CLAIM_MS - 60_000).toISOString() })
+      .in('id', deferred)
+      .eq('status', 'publishing')
+    if (releaseError) console.error('publisher: could not release deferred posts:', releaseError.message)
+  }
 
   return counts
 }

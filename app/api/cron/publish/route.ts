@@ -69,7 +69,7 @@ async function handle(request: NextRequest) {
   if (denied) return denied
 
   try {
-    const data = await runPublishCycle(20)
+    const data = await runPublishCycle()
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error('Cron publish failed:', error)

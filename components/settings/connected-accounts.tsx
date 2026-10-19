@@ -136,7 +136,18 @@ export function ConnectedAccounts() {
     handledParams.current = true
 
     if (connectError) {
-      toast({ variant: "destructive", title: "Could not connect account", description: connectError })
+      // The real message comes from a cookie set by our OAuth callback
+      const match = document.cookie.match(/(?:^|;\s*)cf_connect_error=([^;]*)/)
+      let message = "Please try again."
+      if (match) {
+        try {
+          message = decodeURIComponent(decodeURIComponent(match[1]))
+        } catch {
+          // keep the generic message
+        }
+        document.cookie = "cf_connect_error=; Max-Age=0; path=/"
+      }
+      toast({ variant: "destructive", title: "Could not connect account", description: message })
     } else if (connected) {
       const label = labelForSlug(connected, platforms)
       const n = Number(count)

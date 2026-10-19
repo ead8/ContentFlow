@@ -39,7 +39,7 @@ const SCOPES = [
 const TITLE_LIMIT = 100
 const DESCRIPTION_BYTE_LIMIT = 5000
 const SHORTS_TAG = ' #Shorts'
-const MAX_VIDEO_BYTES = 1024 * 1024 * 1024 // 1 GiB
+const MAX_VIDEO_BYTES = 250 * 1024 * 1024 // whole file is buffered in memory; uploads are capped at 50 MB by storage
 
 const VIDEO_EXT = /\.(mp4|mov|webm|m4v)(?:$|[?#])/i
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|svg)(?:$|[?#])/i
@@ -118,7 +118,7 @@ interface DownloadedVideo {
 async function downloadVideo(url: string): Promise<DownloadedVideo> {
   let res: Response
   try {
-    res = await fetch(url, { signal: AbortSignal.timeout(5 * 60_000) })
+    res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(5 * 60_000) })
   } catch {
     throw new PlatformError('Could not download the video file for YouTube (network error).', {
       retryable: true,
@@ -195,8 +195,9 @@ interface GoogleErrorBody {
   error_description?: string
 }
 
+// quotaExceeded is not retryable: the daily quota resets at midnight Pacific
+// time, long after our 2-4 minute backoff.
 const RETRYABLE_REASONS = [
-  'quotaExceeded',
   'rateLimitExceeded',
   'userRateLimitExceeded',
   'backendError',
@@ -205,7 +206,7 @@ const RETRYABLE_REASONS = [
 const REAUTH_REASONS = ['authError', 'insufficientPermissions', 'invalid_grant']
 
 const FRIENDLY: Record<string, string> = {
-  quotaExceeded: 'The YouTube API daily quota is used up; will retry later.',
+  quotaExceeded: 'The YouTube API daily quota is used up. Press Retry after midnight Pacific time.',
   rateLimitExceeded: 'YouTube rate limit reached; will retry shortly.',
   userRateLimitExceeded: 'YouTube rate limit reached; will retry shortly.',
   uploadLimitExceeded: 'This YouTube channel has reached its upload limit. Try again later.',
@@ -572,7 +573,8 @@ export const youtubeAdapter: PlatformAdapter = {
       })
     }
 
-    // 2. Upload the bytes
+    // 2. Upload the bytes (the video is created when the upload completes)
+    req.commit?.()
     const created = await uploadResumable(sessionUri, token, video.data, mime)
     if (!created.id) {
       // The upload completed, so don't retry (would create a duplicate).

@@ -54,6 +54,8 @@ function parseSignedRequest(signedRequest: string, secret: string): SignedReques
   }
   if (!payload || typeof payload !== 'object') return null
   if (typeof payload.algorithm !== 'string' || payload.algorithm.toUpperCase() !== 'HMAC-SHA256') return null
+  // Reject stale (replayed) requests
+  if (typeof payload.issued_at === 'number' && Date.now() / 1000 - payload.issued_at > 24 * 60 * 60) return null
   return payload
 }
 

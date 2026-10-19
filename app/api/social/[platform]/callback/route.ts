@@ -69,7 +69,18 @@ export async function GET(request: NextRequest, { params }: { params: { platform
     clearOAuthStateCookie(res, slug)
     return res
   }
-  const fail = (message: string) => finish({ connect_error: message })
+  // The message travels in a short-lived cookie only this server can set, so a
+  // crafted /settings?connect_error=... link can't show arbitrary text.
+  const fail = (message: string) => {
+    const res = finish({ connect_error: 1 })
+    res.cookies.set('cf_connect_error', encodeURIComponent(message.slice(0, 300)), {
+      path: '/',
+      maxAge: 60,
+      sameSite: 'lax',
+      secure: request.nextUrl.protocol === 'https:',
+    })
+    return res
+  }
 
   // The user declined or the provider reported a problem
   const validState = !!payload && stateMatches(payload, search.get('state'))

@@ -57,6 +57,8 @@ export function sanitizeReturnTo(value: string | null | undefined): string {
     if (url.origin !== base) return DEFAULT_RETURN_TO
     // Never bounce back into the OAuth endpoints themselves
     if (url.pathname.startsWith('/api/')) return DEFAULT_RETURN_TO
+    // Normalisation can turn '/..//host' into '//host' (protocol-relative)
+    if (url.pathname.startsWith('//')) return DEFAULT_RETURN_TO
     return `${url.pathname}${url.search}${url.hash}`
   } catch {
     return DEFAULT_RETURN_TO

@@ -285,7 +285,7 @@ async function isVideoUrl(url: string): Promise<boolean> {
   if (isVideoUrlByExtension(url)) return true
   if (/\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|tiff?)$/i.test(urlPath(url))) return false
   try {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10_000) })
     return (res.headers.get('content-type') || '').toLowerCase().startsWith('video/')
   } catch {
     return false
@@ -405,15 +405,15 @@ async function assertPermissions(tokens: OAuthTokens, required: string[], platfo
  * App-scoped Facebook user id of the person who connected. Stored as
  * `metadata.fbUserId` on each account so Meta data deletion requests
  * (/api/social/meta/data-deletion, keyed by this id) can find their rows.
- * Best-effort: a failure here must not block connecting.
+ * Required: without it a deletion request could not find the stored tokens
+ * while still being reported as completed, so connecting fails instead.
  */
-async function facebookUserId(userToken: string): Promise<string | null> {
-  try {
-    const me = await graphGet<{ id?: string }>('me', userToken, { fields: 'id' }, 'Facebook user lookup')
-    return me.id ? String(me.id) : null
-  } catch {
-    return null
+async function facebookUserId(userToken: string): Promise<string> {
+  const me = await graphGet<{ id?: string }>('me', userToken, { fields: 'id' }, 'Facebook user lookup')
+  if (!me.id) {
+    throw new PlatformError('Could not identify your Facebook account. Please try connecting again.', { retryable: true })
   }
+  return String(me.id)
 }
 
 interface PageRow {
@@ -461,6 +461,7 @@ async function publishFacebook(req: PublishRequest): Promise<PublishResult> {
     if (media.length > 1) {
       throw new PlatformError('Facebook posts can contain one video, or images only — not both or several videos')
     }
+    req.commit?.()
     const res = await graphPost<{ id?: string; video_id?: string }>(
       `${pageId}/videos`,
       token,
@@ -493,6 +494,7 @@ async function publishFacebook(req: PublishRequest): Promise<PublishResult> {
 
   // Single photo
   if (media.length === 1) {
+    req.commit?.()
     const res = await graphPost<{ id?: string; post_id?: string }>(
       `${pageId}/photos`,
       token,
@@ -527,6 +529,7 @@ async function publishFacebook(req: PublishRequest): Promise<PublishResult> {
     throw new PlatformError('Facebook post is empty')
   }
 
+  req.commit?.()
   const res = await graphPost<{ id?: string }>(`${pageId}/feed`, token, feedParams, 'Facebook post')
   if (!res.id) throw new PlatformError('Facebook post failed: no post id returned')
   return { externalId: res.id, url: (await facebookPermalink(res.id, token)) || facebookPostUrl(res.id) }
@@ -566,7 +569,7 @@ async function facebookPostMetrics(account: SocialAccount, externalId: string): 
       comments?: { summary?: { total_count?: number } }
       shares?: { count?: number }
     }>(
-      externalId,
+      encodeURIComponent(externalId),
       token,
       { fields: 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares' },
       'Facebook post metrics'
@@ -590,7 +593,7 @@ async function facebookPostMetrics(account: SocialAccount, externalId: string): 
       try {
         const res = await graphGet<{
           data?: { name: string; values?: { value?: unknown }[]; total_value?: { value?: unknown } }[]
-        }>(`${externalId}/insights`, token, { metric, period: 'lifetime' }, 'Facebook post insights')
+        }>(`${encodeURIComponent(externalId)}/insights`, token, { metric, period: 'lifetime' }, 'Facebook post insights')
         const v = insightValue(res.data, metric)
         if (typeof v === 'number') out[key] = v
       } catch (e) {
@@ -769,6 +772,7 @@ async function publishInstagram(req: PublishRequest): Promise<PublishResult> {
     await waitForContainers([creationId], token, deadline)
   }
 
+  req.commit?.()
   const published = await graphPost<{ id?: string }>(
     `${igId}/media_publish`,
     token,
@@ -795,7 +799,7 @@ async function instagramPostMetrics(account: SocialAccount, externalId: string):
   // Basic counters (instagram_basic)
   try {
     const res = await graphGet<{ like_count?: number; comments_count?: number }>(
-      externalId,
+      encodeURIComponent(externalId),
       token,
       { fields: 'like_count,comments_count' },
       'Instagram media metrics'
@@ -814,7 +818,7 @@ async function instagramPostMetrics(account: SocialAccount, externalId: string):
     try {
       const res = await graphGet<{
         data?: { name: string; values?: { value?: unknown }[]; total_value?: { value?: unknown } }[]
-      }>(`${externalId}/insights`, token, { metric }, 'Instagram media insights')
+      }>(`${encodeURIComponent(externalId)}/insights`, token, { metric }, 'Instagram media insights')
       const views = insightValue(res.data, 'views')
       const reach = insightValue(res.data, 'reach')
       const likes = insightValue(res.data, 'likes')

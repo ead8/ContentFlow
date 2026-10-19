@@ -235,7 +235,7 @@ function guessContentType(url: string): string {
 }
 
 async function downloadMedia(url: string): Promise<DownloadedMedia> {
-  const res = await safeFetch(url, { cache: 'no-store' }, 'Downloading media for X')
+  const res = await safeFetch(url, { cache: 'no-store', redirect: 'error' }, 'Downloading media for X')
   if (!res.ok) {
     throw new PlatformError(`Could not download a media file for X (HTTP ${res.status})`, {
       retryable: res.status === 429 || res.status >= 500,
@@ -517,6 +517,7 @@ export const xAdapter: PlatformAdapter = {
     if (req.text?.trim()) payload.text = req.text
     if (mediaIds.length) payload.media = { media_ids: mediaIds }
 
+    req.commit?.()
     const res = await safeFetch(
       `${API}/tweets`,
       {

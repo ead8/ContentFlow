@@ -23,6 +23,8 @@ interface MetricsTarget {
   platform: string
   social_account_id: string
   external_id: string
+  /** Owner of the post; must match the account owner */
+  content_posts: { user_id: string } | null
 }
 
 export interface AnalyticsSyncResult {
@@ -85,7 +87,7 @@ export async function runAnalyticsSync(limit = 50): Promise<AnalyticsSyncResult>
 
   const { data: rows, error } = await admin
     .from('post_targets')
-    .select('id, post_id, platform, social_account_id, external_id')
+    .select('id, post_id, platform, social_account_id, external_id, content_posts!inner(user_id)')
     .eq('status', 'published')
     .not('external_id', 'is', null)
     .not('social_account_id', 'is', null)
@@ -95,7 +97,7 @@ export async function runAnalyticsSync(limit = 50): Promise<AnalyticsSyncResult>
     .limit(Math.min(Math.max(Math.floor(limit), 1), 500))
   if (error) throw error
 
-  const targets = (rows || []) as MetricsTarget[]
+  const targets = (rows || []) as unknown as MetricsTarget[]
   result.targets = targets.length
 
   const byAccount = new Map<string, MetricsTarget[]>()
@@ -133,6 +135,12 @@ export async function runAnalyticsSync(limit = 50): Promise<AnalyticsSyncResult>
     }
 
     for (const target of accountTargets) {
+      // Never query one user's account for another user's post
+      if (target.content_posts?.user_id !== account.userId) {
+        console.error(`analytics-sync: target ${target.id} does not belong to the account owner; skipping`)
+        await markSynced([target.id])
+        continue
+      }
       try {
         const metrics = await adapter.fetchPostMetrics(account, target.external_id)
         const recordedAt = new Date().toISOString()
@@ -184,14 +192,18 @@ async function syncAccountMetrics(admin: ReturnType<typeof createAdminClient>): 
   })
   if (active.length === 0) return 0
 
-  const { data: done, error } = await admin
-    .from('platform_analytics')
-    .select('social_account_id')
-    .eq('metric_date', today)
-    .in('social_account_id', active.map((a) => a.id))
-  if (error) throw error
-
-  const doneIds = new Set((done || []).map((r: { social_account_id: string | null }) => r.social_account_id))
+  // Chunked: hundreds of ids in one `in` filter overflow the request URL
+  const doneIds = new Set<string | null>()
+  const ids = active.map((a) => a.id)
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: done, error } = await admin
+      .from('platform_analytics')
+      .select('social_account_id')
+      .eq('metric_date', today)
+      .in('social_account_id', ids.slice(i, i + 100))
+    if (error) throw error
+    for (const r of (done || []) as { social_account_id: string | null }[]) doneIds.add(r.social_account_id)
+  }
   const due = active.filter((a) => !doneIds.has(a.id)).slice(0, ACCOUNT_METRICS_LIMIT)
 
   let saved = 0
