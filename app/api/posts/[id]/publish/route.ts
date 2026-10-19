@@ -1,31 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { publishPost } from '@/lib/services/content-posts'
-import { apiError } from '@/lib/api/error'
+import { markPublished } from '@/lib/services/content-posts'
+import { apiError, ValidationError } from '@/lib/api/error'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+/**
+ * POST /api/posts/:id/publish -> record the post as published
+ * Body: { platforms: [{ platform: string, url?: string }] }
+ */
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const body = await request.json()
-    const { targetAccountIds } = body
-
-    if (!params.id) {
-      return NextResponse.json(
-        { success: false, error: 'Post ID required' },
-        { status: 400 }
-      )
+    const body = await request.json().catch(() => ({}))
+    if (!Array.isArray(body.platforms) || body.platforms.length === 0) {
+      throw new ValidationError('platforms must be a non-empty array')
     }
 
-    if (!Array.isArray(targetAccountIds) || targetAccountIds.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'targetAccountIds must be a non-empty array' },
-        { status: 400 }
-      )
-    }
+    const entries = body.platforms.map((p: unknown) =>
+      typeof p === 'string'
+        ? { platform: p }
+        : { platform: String((p as any)?.platform ?? ''), url: (p as any)?.url ?? null }
+    )
 
-    await publishPost(params.id, targetAccountIds)
-    return NextResponse.json({ success: true })
+    const post = await markPublished(params.id, entries)
+    return NextResponse.json({ success: true, data: post })
   } catch (error) {
     return apiError(error, 'Error publishing post')
   }

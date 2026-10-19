@@ -1,46 +1,13 @@
 /*
-  # Create test admin account
+  Intentionally empty.
 
-  1. Changes
-    - Insert test admin user into auth.users
-    - Set up admin profile with enterprise role
-    - Add initial credits
+  This migration used to insert a hard-coded admin account
+  (admin@intuity.ai) with a password published in the source code. That is a
+  backdoor in every environment the migrations run against, so it was
+  removed. 20261019000000_hardening_billing_media.sql disables that account
+  on databases where it was already created.
 
-  Note: This is for testing purposes only
+  For local development, create users through the app's sign-up page or the
+  Supabase Studio instead (see supabase/seed.sql).
 */
-
--- Insert test admin user
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  created_at,
-  updated_at
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  'c9d53d6d-7c99-4bd0-8103-4a9f83b6b1fc',
-  'authenticated',
-  'authenticated',
-  'admin@intuity.ai',
-  '$2a$10$PxXHyH8YHGQcw1PVyfTxYOPVK7xQTyuNHjJHJTe8g5V.9QBxbICOm', -- Password: Admin123!
-  now(),
-  now(),
-  now()
-);
-
--- Insert admin profile
-INSERT INTO public.profiles (
-  id,
-  email,
-  role,
-  credits
-) VALUES (
-  'c9d53d6d-7c99-4bd0-8103-4a9f83b6b1fc',
-  'admin@intuity.ai',
-  'enterprise',
-  10000
-);
+SELECT 1;

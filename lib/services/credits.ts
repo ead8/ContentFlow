@@ -1,8 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { CREDIT_COSTS, CreditKind, getPlan } from '@/lib/billing/plans'
 
-export interface UserCredits {
-  user_id: string
-  available_credits: number
+export interface CreditBalance {
+  credits: number
+  plan: string
+  plan_name: string
+  monthly_allowance: number
+  credits_refreshed_at: string
 }
 
 export interface CreditTransaction {
@@ -10,161 +14,72 @@ export interface CreditTransaction {
   user_id: string
   amount: number
   transaction_type: string
+  kind: string | null
   description: string | null
   reference_id: string | null
   balance_after: number | null
   created_at: string
 }
 
-async function getAuthedUserId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('User not authenticated')
-  return user.id
-}
-
-async function readWallet(userId: string): Promise<number> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('credits')
-    .eq('id', userId)
-    .single()
-
-  if (error) throw error
-  return data?.credits ?? 0
-}
-
-/**
- * Initialize credits for a new user. Profiles are created with a default
- * credit balance by the database, so this just ensures a row exists.
- */
-export async function initializeUserCredits(userId: string, initialCredits = 50): Promise<UserCredits> {
-  const supabase = await createClient()
-
-  await supabase
-    .from('profiles')
-    .update({ credits: initialCredits })
-    .eq('id', userId)
-
-  return { user_id: userId, available_credits: initialCredits }
-}
-
-/**
- * Get the current user's credit balance (single source of truth:
- * profiles.credits)
- */
-export async function getUserCredits(): Promise<UserCredits> {
-  const userId = await getAuthedUserId()
-  const available_credits = await readWallet(userId)
-  return { user_id: userId, available_credits }
-}
-
-/**
- * Deduct credits from the user's wallet and record the transaction
- */
-export async function deductCredits(
-  amount: number,
-  description?: string,
-  referenceId?: string
-): Promise<CreditTransaction> {
-  if (amount <= 0) throw new Error('Amount must be positive')
-
-  const supabase = await createClient()
-  const userId = await getAuthedUserId()
-  const current = await readWallet(userId)
-
-  if (current < amount) {
-    throw new Error('Insufficient credits')
+/** Map Postgres errors raised by the credit functions to app errors */
+function toAppError(error: { message?: string; code?: string }): Error {
+  if (error.message?.includes('Insufficient credits')) return new Error('Insufficient credits')
+  if (error.message?.includes('User not authenticated') || error.code === '28000') {
+    return new Error('User not authenticated')
   }
-
-  const newBalance = current - amount
-
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ credits: newBalance, updated_at: new Date().toISOString() })
-    .eq('id', userId)
-
-  if (updateError) throw updateError
-
-  const { data, error } = await supabase
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      amount: -amount,
-      transaction_type: 'deduction',
-      description,
-      reference_id: referenceId,
-      balance_after: newBalance,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  return data as CreditTransaction
+  return new Error(error.message || 'Credit operation failed')
 }
 
 /**
- * Add credits to the user's wallet and record the transaction
+ * Current user's balance and plan. Applies the free plan's monthly top-up.
  */
-export async function addCredits(
-  amount: number,
-  description?: string,
-  referenceId?: string
-): Promise<CreditTransaction> {
-  if (amount <= 0) throw new Error('Amount must be positive')
+export async function getCreditBalance(): Promise<CreditBalance> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('get_my_credits').single()
 
-  const supabase = await createClient()
-  const userId = await getAuthedUserId()
-  const current = await readWallet(userId)
-  const newBalance = current + amount
+  if (error) throw toAppError(error)
+  const row = data as Omit<CreditBalance, 'plan_name'>
+  return { ...row, plan_name: getPlan(row.plan).name }
+}
 
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ credits: newBalance, updated_at: new Date().toISOString() })
-    .eq('id', userId)
+/**
+ * Throw 'Insufficient credits' before doing expensive work the user
+ * cannot pay for. The real charge happens atomically in spendCredits().
+ */
+export async function assertCanAfford(kind: CreditKind): Promise<void> {
+  const { credits } = await getCreditBalance()
+  if (credits < CREDIT_COSTS[kind]) throw new Error('Insufficient credits')
+}
 
-  if (updateError) throw updateError
-
+/**
+ * Atomically deduct the cost of an operation from the current user's
+ * balance and record the transaction.
+ */
+export async function spendCredits(kind: CreditKind, description: string): Promise<CreditTransaction> {
+  const supabase = createClient()
   const { data, error } = await supabase
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      amount,
-      transaction_type: 'addition',
-      description,
-      reference_id: referenceId,
-      balance_after: newBalance,
+    .rpc('spend_credits', {
+      p_amount: CREDIT_COSTS[kind],
+      p_kind: kind,
+      p_description: description,
     })
-    .select()
     .single()
 
-  if (error) throw error
+  if (error) throw toAppError(error)
   return data as CreditTransaction
 }
 
 /**
- * Get credit transaction history
+ * Credit transaction history for the current user (newest first).
  */
 export async function getCreditTransactions(limit = 50): Promise<CreditTransaction[]> {
-  const supabase = await createClient()
-  const userId = await getAuthedUserId()
-
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('credit_transactions')
     .select('*')
-    .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .limit(Math.min(Math.max(limit, 1), 200))
 
-  if (error) throw error
+  if (error) throw toAppError(error)
   return data as CreditTransaction[]
-}
-
-/**
- * Refill credits (e.g. monthly plan refill)
- */
-export async function refillCredits(amount: number, description = 'Monthly refill'): Promise<void> {
-  await addCredits(amount, description, 'refill')
 }

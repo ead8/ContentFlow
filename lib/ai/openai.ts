@@ -41,7 +41,7 @@ export interface GenerateInput {
 }
 
 /**
- * Generate platform-tailored social content with OpenAI.
+ * Generate platform-tailored social content with an OpenAI-compatible API.
  * Returns the ContentGenerationResponse shape the wizard expects.
  */
 export async function generateContentIdeas(input: GenerateInput): Promise<ContentGenerationResponse> {
@@ -79,6 +79,7 @@ ${platformInstructions}`
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: authHeaders(key),
+    signal: AbortSignal.timeout(90_000),
     body: JSON.stringify({
       model: TEXT_MODEL,
       response_format: { type: 'json_object' },
@@ -92,58 +93,131 @@ ${platformInstructions}`
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    throw new Error(`AI generation failed (${res.status}). ${detail.slice(0, 200)}`)
+    console.error(`AI text generation failed (${res.status}):`, detail.slice(0, 500))
+    throw new Error(`AI generation failed (${res.status}). Please try again.`)
   }
 
   const json = await res.json()
-  const raw = json.choices?.[0]?.message?.content
-  if (!raw) throw new Error('AI generation returned an empty response.')
+  const raw: string | undefined = json.choices?.[0]?.message?.content
+  if (!raw) throw new Error('AI generation returned an empty response. Please try again.')
 
-  let parsed: ContentGenerationResponse
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    throw new Error('AI generation returned invalid JSON.')
+  const parsed = parseJsonObject(raw) as ContentGenerationResponse | null
+  if (!parsed?.platform_posts || typeof parsed.platform_posts !== 'object') {
+    throw new Error('AI generation returned an incomplete response. Please try again.')
   }
 
-  if (!parsed.name || !parsed.description || !parsed.platform_posts) {
-    throw new Error('AI generation returned an incomplete response.')
+  // Keep only the requested platforms and normalise the fields the UI edits
+  const platform_posts: ContentGenerationResponse['platform_posts'] = {}
+  for (const platform of input.platforms) {
+    const post = parsed.platform_posts[platform]
+    if (!post) continue
+    platform_posts[platform] = {
+      ...post,
+      post: typeof post.post === 'string' ? post.post : post.caption || '',
+      hashtags: Array.isArray(post.hashtags)
+        ? post.hashtags.map((h) => String(h).replace(/^#+/, '').trim()).filter(Boolean)
+        : [],
+    }
   }
 
-  return parsed
+  if (Object.keys(platform_posts).length === 0) {
+    throw new Error('AI generation returned no posts for the selected platforms. Please try again.')
+  }
+
+  return {
+    name: parsed.name || 'Untitled campaign',
+    description: parsed.description || '',
+    platform_posts,
+    additional_notes: parsed.additional_notes,
+  }
 }
 
+/** Parse a JSON object from model output, tolerating code fences/prose */
+function parseJsonObject(raw: string): unknown {
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    const first = cleaned.indexOf('{')
+    const last = cleaned.lastIndexOf('}')
+    if (first === -1 || last <= first) return null
+    try {
+      return JSON.parse(cleaned.slice(first, last + 1))
+    } catch {
+      return null
+    }
+  }
+}
+
+export interface GeneratedImage {
+  bytes: ArrayBuffer
+  contentType: string
+  extension: string
+}
+
+const IMAGE_PROMPT_PREFIX = 'Social media creative, high quality, no text overlays: '
+
 /**
- * Generate an image with OpenAI and return its URL.
+ * Generate an image and return its bytes, so the caller can store a
+ * permanent copy (provider URLs are often temporary).
  */
-export async function generateImageUrl(prompt: string): Promise<string> {
+export async function generateImage(prompt: string): Promise<GeneratedImage> {
   const key = apiKey()
 
   // Pollinations has no OpenAI-style /images/generations endpoint; it serves
-  // images from a keyless URL API instead, so route through it directly.
+  // images from a keyless URL API instead.
   if (IS_POLLINATIONS) {
-    const q = encodeURIComponent(`Social media creative, high quality, no text overlays: ${prompt}`)
-    return `https://image.pollinations.ai/prompt/${q}?width=1024&height=1024&nologo=true&model=flux`
+    const q = encodeURIComponent(`${IMAGE_PROMPT_PREFIX}${prompt}`)
+    return downloadImage(
+      `https://image.pollinations.ai/prompt/${q}?width=1024&height=1024&nologo=true&model=flux`
+    )
   }
 
+  // dall-e models accept response_format; gpt-image models always return base64
+  const isDallE = IMAGE_MODEL.startsWith('dall-e')
   const res = await fetch(`${BASE_URL}/images/generations`, {
     method: 'POST',
     headers: authHeaders(key),
+    signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
       model: IMAGE_MODEL,
-      prompt: `Social media creative, high quality, no text overlays: ${prompt}`,
+      prompt: `${IMAGE_PROMPT_PREFIX}${prompt}`,
       size: '1024x1024',
       n: 1,
+      ...(isDallE ? { response_format: 'b64_json' } : {}),
     }),
   })
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    throw new Error(`Image generation failed (${res.status}). ${detail.slice(0, 200)}`)
+    console.error(`AI image generation failed (${res.status}):`, detail.slice(0, 500))
+    throw new Error(`Image generation failed (${res.status}). Please try again.`)
   }
 
   const json = await res.json()
-  const url = json.data?.[0]?.url
-  if (!url) throw new Error('Image generation returned no URL.')
-  return url
+  const item = json.data?.[0]
+  if (item?.b64_json) {
+    const buf = Buffer.from(item.b64_json, 'base64')
+    return {
+      bytes: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer,
+      contentType: 'image/png',
+      extension: 'png',
+    }
+  }
+  if (item?.url) return downloadImage(item.url)
+
+  throw new Error('Image generation returned no image. Please try again.')
+}
+
+async function downloadImage(url: string): Promise<GeneratedImage> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(120_000) })
+  if (!res.ok) throw new Error(`Image generation failed (${res.status}). Please try again.`)
+
+  const contentType = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+  if (!contentType.startsWith('image/')) {
+    throw new Error('Image generation returned an unexpected response. Please try again.')
+  }
+
+  const extension = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg'
+  return { bytes: await res.arrayBuffer(), contentType, extension }
 }
