@@ -6,6 +6,8 @@ import { apiError } from '@/lib/api/error'
 import { PLATFORMS, TONES } from '@/lib/platforms'
 
 export const dynamic = 'force-dynamic'
+// Generation plus, at worst, waiting out a provider rate limit
+export const maxDuration = 120
 
 /**
  * Generate platform-tailored social content with AI.

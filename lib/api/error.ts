@@ -35,7 +35,7 @@ export function apiError(error: unknown, context: string): NextResponse {
   }
 
   // Messages we raise ourselves for user-facing failures (AI provider down etc.)
-  if (error instanceof Error && /Please try again\.$|not configured/.test(message)) {
+  if (error instanceof Error && /Please try again\.$|not configured|not available|contact support\.$/.test(message)) {
     console.error(`${context}:`, message)
     return NextResponse.json({ success: false, error: message }, { status: 502 })
   }

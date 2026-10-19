@@ -1,21 +1,67 @@
 import type { ContentGenerationResponse } from '@/models/content'
 
-// Any OpenAI-compatible provider works here, e.g.:
-//   - OpenAI:            https://api.openai.com/v1            (needs OPENAI_API_KEY)
-//   - OpenRouter:        https://openrouter.ai/api/v1        (free :free models, free key, no card)
-//   - Pollinations:      https://text.pollinations.ai/openai (no key needed at all)
-const BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
-const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL || 'gpt-4o-mini'
-const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'dall-e-3'
+/**
+ * AI provider configuration. Any OpenAI-compatible API works; AI_PROVIDER
+ * picks sensible defaults and explicit OPENAI_* variables always win:
+ *
+ *   openai       production; needs OPENAI_API_KEY
+ *   openrouter   many models behind one key; needs OPENAI_API_KEY
+ *                (OpenRouter has no image API: set OPENAI_IMAGE_BASE_URL/KEY
+ *                to an image-capable provider, or images are unavailable)
+ *   pollinations keyless, for demos only (about 1 reply / 30 s per IP)
+ *   custom       anything else; needs OPENAI_BASE_URL
+ *
+ * Without AI_PROVIDER: pollinations if OPENAI_BASE_URL points at it, custom
+ * if another OPENAI_BASE_URL is set, otherwise openai.
+ */
+type AiProvider = 'openai' | 'openrouter' | 'pollinations' | 'custom'
+
+const PRESETS: Record<AiProvider, { baseUrl?: string; textModel: string; imageModel: string; keyless?: boolean }> = {
+  openai: { baseUrl: 'https://api.openai.com/v1', textModel: 'gpt-4o-mini', imageModel: 'dall-e-3' },
+  openrouter: { baseUrl: 'https://openrouter.ai/api/v1', textModel: 'openai/gpt-4o-mini', imageModel: '' },
+  pollinations: { baseUrl: 'https://text.pollinations.ai/openai', textModel: 'openai', imageModel: 'flux', keyless: true },
+  custom: { textModel: 'gpt-4o-mini', imageModel: 'dall-e-3' },
+}
+
+function resolveProvider(): AiProvider {
+  const explicit = process.env.AI_PROVIDER?.trim().toLowerCase()
+  if (explicit && explicit in PRESETS) return explicit as AiProvider
+  const base = process.env.OPENAI_BASE_URL || ''
+  if (base.includes('pollinations.ai')) return 'pollinations'
+  if (base) return 'custom'
+  return 'openai'
+}
+
+const PROVIDER = resolveProvider()
+const PRESET = PRESETS[PROVIDER]
+const BASE_URL = (process.env.OPENAI_BASE_URL || PRESET.baseUrl || '').replace(/\/$/, '')
+const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL || PRESET.textModel
+const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || PRESET.imageModel
 const IS_POLLINATIONS = BASE_URL.includes('pollinations.ai')
+const IMAGE_BASE_URL = (process.env.OPENAI_IMAGE_BASE_URL || BASE_URL).replace(/\/$/, '')
+
+const NOT_CONFIGURED = 'AI generation is not configured. Please contact support.'
+
+/** Provider summary for health checks (no secrets) */
+export function aiConfig() {
+  const keyless = PRESET.keyless || IS_POLLINATIONS
+  return {
+    provider: PROVIDER,
+    baseUrl: BASE_URL,
+    textModel: TEXT_MODEL,
+    imageModel: IMAGE_MODEL || null,
+    configured: Boolean(BASE_URL) && (keyless || Boolean(process.env.OPENAI_API_KEY)),
+    demoOnly: keyless,
+  }
+}
 
 function apiKey(): string {
-  const key = process.env.OPENAI_API_KEY
-  if (!key && !process.env.OPENAI_BASE_URL) {
-    throw new Error('AI generation is not configured. Set OPENAI_API_KEY in your environment.')
+  const cfg = aiConfig()
+  if (!cfg.configured) {
+    console.error(`AI provider "${PROVIDER}" is missing configuration (OPENAI_API_KEY / OPENAI_BASE_URL).`)
+    throw new Error(NOT_CONFIGURED)
   }
-  // Keyless providers (e.g. Pollinations) don't need one.
-  return key || ''
+  return process.env.OPENAI_API_KEY || ''
 }
 
 function authHeaders(key: string): Record<string, string> {
@@ -85,14 +131,38 @@ ${platformInstructions}`
     } catch (err) {
       lastError = err as Error
       if (!(err instanceof MalformedResponseError || err instanceof TransientProviderError)) break
-      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500))
+      if (attempt < 3) {
+        const hinted = err instanceof TransientProviderError ? err.retryAfterMs : undefined
+        if (hinted !== undefined && hinted > MAX_RATE_LIMIT_WAIT_MS) break
+        await new Promise((r) => setTimeout(r, hinted !== undefined ? hinted + 500 : attempt * 1500))
+      }
     }
   }
   throw lastError ?? new Error('AI generation failed. Please try again.')
 }
 
 class MalformedResponseError extends Error {}
-class TransientProviderError extends Error {}
+class TransientProviderError extends Error {
+  constructor(message: string, readonly retryAfterMs?: number) {
+    super(message)
+  }
+}
+
+/** Longest rate-limit wait we absorb inside one request */
+const MAX_RATE_LIMIT_WAIT_MS = 35_000
+
+/** Retry-After header (seconds or HTTP date), or "retry after Ns" in the body */
+function retryAfterMs(res: Response, body: string): number | undefined {
+  const header = res.headers.get('retry-after')
+  if (header) {
+    const secs = Number(header)
+    if (Number.isFinite(secs)) return secs * 1000
+    const at = Date.parse(header)
+    if (!Number.isNaN(at)) return Math.max(0, at - Date.now())
+  }
+  const m = body.match(/retry after (\d+)\s*s/i)
+  return m ? Number(m[1]) * 1000 : undefined
+}
 
 async function requestCompletion(key: string, system: string, prompt: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -116,7 +186,10 @@ async function requestCompletion(key: string, system: string, prompt: string): P
     const detail = await res.text().catch(() => '')
     console.error(`AI text generation failed (${res.status}):`, detail.slice(0, 500))
     const message = `AI generation failed (${res.status}). Please try again.`
-    if (res.status === 429 || res.status >= 500) throw new TransientProviderError(message)
+    const wait = retryAfterMs(res, detail)
+    // Rate limits (429, or 402 "free limit" from keyless providers) say when to come back
+    const rateLimited = res.status === 429 || (res.status === 402 && /limit/i.test(detail))
+    if (rateLimited || res.status >= 500) throw new TransientProviderError(message, wait)
     throw new Error(message)
   }
 
@@ -273,10 +346,14 @@ export async function generateImage(prompt: string): Promise<GeneratedImage> {
   }
 
   // dall-e models accept response_format; gpt-image models always return base64
+  if (!IMAGE_MODEL) {
+    throw new Error('Image generation is not available with the current AI provider. Upload an image instead.')
+  }
+  const imageKey = process.env.OPENAI_IMAGE_API_KEY || key
   const isDallE = IMAGE_MODEL.startsWith('dall-e')
-  const res = await fetch(`${BASE_URL}/images/generations`, {
+  const res = await fetch(`${IMAGE_BASE_URL}/images/generations`, {
     method: 'POST',
-    headers: authHeaders(key),
+    headers: authHeaders(imageKey),
     signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
       model: IMAGE_MODEL,
