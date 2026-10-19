@@ -1,207 +1,103 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireUserId } from './auth'
+import { METRIC_TYPES, type MetricType } from './content-posts'
 
-export interface PostAnalytic {
-  id: string
-  post_id: string
-  platform: string
-  engagement_type: string
-  count: number
-  recorded_at: string
+export type MetricTotals = Record<MetricType, number>
+
+export interface AnalyticsOverview {
+  totals: MetricTotals
+  /** (likes + comments + shares + clicks) / impressions, as a percentage */
+  engagement_rate: number
+  by_platform: { platform: string; totals: MetricTotals; engagement_rate: number }[]
+  top_posts: {
+    id: string
+    title: string
+    status: string
+    published_at: string | null
+    totals: MetricTotals
+    engagement_rate: number
+  }[]
+  post_counts: { draft: number; scheduled: number; published: number; total: number }
 }
 
-export interface PlatformAnalytic {
-  id: string
-  user_id: string
-  social_account_id: string
-  platform: string
-  metric_date: string
-  followers_count: number | null
-  total_impressions: number | null
-  total_clicks: number | null
-  total_shares: number | null
-  total_comments: number | null
-  total_likes: number | null
-  engagement_rate: number | null
-  recorded_at: string
+function emptyTotals(): MetricTotals {
+  return Object.fromEntries(METRIC_TYPES.map((m) => [m, 0])) as MetricTotals
+}
+
+export function engagementRate(t: MetricTotals): number {
+  if (!t.impressions) return 0
+  const interactions = t.likes + t.comments + t.shares + t.clicks
+  return Math.round((interactions / t.impressions) * 10000) / 100
 }
 
 /**
- * Record engagement metrics for a post
+ * Engagement overview built from the metrics recorded on the user's posts.
  */
-export async function recordPostAnalytics(
-  postId: string,
-  platform: string,
-  metrics: {
-    likes?: number
-    comments?: number
-    shares?: number
-    clicks?: number
-    impressions?: number
-  }
-): Promise<void> {
-  const supabase = await createClient()
+export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+  const supabase = createClient()
   const userId = await requireUserId()
 
-  // Only record analytics for the user's own posts
-  const { data: post, error: postError } = await supabase
-    .from('content_posts')
-    .select('id')
-    .eq('id', postId)
-    .eq('user_id', userId)
-    .single()
-
-  if (postError || !post) throw new Error('Post not found')
-
-  const analyticsData = [
-    ...(metrics.likes ? [{ post_id: postId, platform, engagement_type: 'likes', count: metrics.likes }] : []),
-    ...(metrics.comments ? [{ post_id: postId, platform, engagement_type: 'comments', count: metrics.comments }] : []),
-    ...(metrics.shares ? [{ post_id: postId, platform, engagement_type: 'shares', count: metrics.shares }] : []),
-    ...(metrics.clicks ? [{ post_id: postId, platform, engagement_type: 'clicks', count: metrics.clicks }] : []),
-    ...(metrics.impressions ? [{ post_id: postId, platform, engagement_type: 'impressions', count: metrics.impressions }] : []),
-  ]
-
-  if (analyticsData.length === 0) return
-
-  const { error } = await supabase
-    .from('post_analytics')
-    .insert(analyticsData)
-
-  if (error) throw error
-}
-
-/**
- * Get analytics for a specific post
- */
-export async function getPostAnalytics(postId: string): Promise<PostAnalytic[]> {
-  const supabase = await createClient()
-  const userId = await requireUserId()
-
-  const { data: post, error: postError } = await supabase
-    .from('content_posts')
-    .select('id')
-    .eq('id', postId)
-    .eq('user_id', userId)
-    .single()
-
-  if (postError || !post) throw new Error('Post not found')
-
-  const { data, error } = await supabase
-    .from('post_analytics')
-    .select('*')
-    .eq('post_id', postId)
-    .order('recorded_at', { ascending: false })
-
-  if (error) throw error
-  return data as PostAnalytic[]
-}
-
-/**
- * Record platform-level analytics
- */
-export async function recordPlatformAnalytics(
-  accountId: string,
-  platform: string,
-  metrics: {
-    followers_count?: number
-    total_impressions?: number
-    total_clicks?: number
-    total_shares?: number
-    total_comments?: number
-    total_likes?: number
-    engagement_rate?: number
-  }
-): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('User not authenticated')
-
-  const { error } = await supabase
-    .from('platform_analytics')
-    .insert({
-      user_id: user.id,
-      social_account_id: accountId,
-      platform,
-      metric_date: new Date().toISOString().split('T')[0],
-      ...metrics,
-    })
-
-  if (error) throw error
-}
-
-/**
- * Get platform analytics for a user
- */
-export async function getUserPlatformAnalytics(
-  platform?: string,
-  days = 30
-): Promise<PlatformAnalytic[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('User not authenticated')
-
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - days)
-
-  let query = supabase
-    .from('platform_analytics')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('metric_date', startDate.toISOString().split('T')[0])
-
-  if (platform) {
-    query = query.eq('platform', platform)
-  }
-
-  const { data, error } = await query
-    .order('metric_date', { ascending: false })
-
-  if (error) throw error
-  return data as PlatformAnalytic[]
-}
-
-/**
- * Get engagement summary for all posts
- */
-export async function getEngagementSummary(): Promise<{
-  total_likes: number
-  total_comments: number
-  total_shares: number
-  total_impressions: number
-  average_engagement_rate: number
-}> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('User not authenticated')
-
-  const { data, error } = await supabase
-    .from('post_analytics')
-    .select('engagement_type, count', { count: 'exact' })
-    .in('post_id', [
-      `(select id from content_posts where user_id = '${user.id}')`,
+  const [{ data: posts, error: postsError }, { data: metrics, error: metricsError }] =
+    await Promise.all([
+      supabase
+        .from('content_posts')
+        .select('id, title, content, status, published_at')
+        .eq('user_id', userId),
+      // RLS limits post_analytics to rows on the user's own posts
+      supabase.from('post_analytics').select('post_id, platform, engagement_type, count'),
     ])
 
-  if (error) throw error
+  if (postsError) throw postsError
+  if (metricsError) throw metricsError
 
-  let summary = {
-    total_likes: 0,
-    total_comments: 0,
-    total_shares: 0,
-    total_impressions: 0,
-    average_engagement_rate: 0,
+  const totals = emptyTotals()
+  const byPlatform = new Map<string, MetricTotals>()
+  const byPost = new Map<string, MetricTotals>()
+
+  for (const m of metrics || []) {
+    const type = m.engagement_type as MetricType
+    if (!(METRIC_TYPES as readonly string[]).includes(type)) continue
+
+    totals[type] += m.count
+
+    const p = byPlatform.get(m.platform) || emptyTotals()
+    p[type] += m.count
+    byPlatform.set(m.platform, p)
+
+    const post = byPost.get(m.post_id) || emptyTotals()
+    post[type] += m.count
+    byPost.set(m.post_id, post)
   }
 
-  if (data && Array.isArray(data)) {
-    data.forEach((item: any) => {
-      const key = `total_${item.engagement_type}` as keyof typeof summary
-      if (key in summary) {
-        summary[key] += item.count || 0
+  const postCounts = { draft: 0, scheduled: 0, published: 0, total: 0 }
+  for (const p of posts || []) {
+    postCounts.total++
+    if (p.status in postCounts) postCounts[p.status as 'draft' | 'scheduled' | 'published']++
+  }
+
+  const topPosts = (posts || [])
+    .filter((p) => byPost.has(p.id))
+    .map((p) => {
+      const t = byPost.get(p.id)!
+      return {
+        id: p.id,
+        title: p.title || p.content.slice(0, 60),
+        status: p.status,
+        published_at: p.published_at,
+        totals: t,
+        engagement_rate: engagementRate(t),
       }
     })
-  }
+    .sort((a, b) => b.totals.impressions - a.totals.impressions || b.totals.likes - a.totals.likes)
+    .slice(0, 10)
 
-  return summary
+  return {
+    totals,
+    engagement_rate: engagementRate(totals),
+    by_platform: Array.from(byPlatform.entries())
+      .map(([platform, t]) => ({ platform, totals: t, engagement_rate: engagementRate(t) }))
+      .sort((a, b) => b.totals.impressions - a.totals.impressions),
+    top_posts: topPosts,
+    post_counts: postCounts,
+  }
 }

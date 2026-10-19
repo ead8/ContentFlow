@@ -51,17 +51,21 @@ const SignUpForm = () => {
     try {
       setIsLoading(true)
 
-      const { error } = await signUp(data.email)
+      const { error } = await signUp(data.email.trim(), data.fullName.trim(), data.userType)
 
-      if(error) {
+      if (error) {
         throw error
       }
-      router.push(`/otp?email=${data.email}&fullName=${data.fullName}&type=${data.userType}`)
-    } catch (error) {
-      setIsLoading(false)
+      const params = new URLSearchParams({
+        email: data.email.trim(),
+        fullName: data.fullName.trim(),
+        type: data.userType,
+      })
+      router.push(`/otp?${params}`)
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Could not create your account",
+        description: error?.message || "Something went wrong. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -180,6 +184,12 @@ const SignUpForm = () => {
           >
             {isLoading ? "Creating account..." : "Create Account"}
           </Button>
+
+          <p className="text-center text-xs text-muted-foreground">
+            By creating an account you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-foreground">Terms</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+          </p>
 
           {/* Sign In Link */}
           <div className="text-center text-sm text-muted-foreground">

@@ -1,71 +1,48 @@
-import { ContentGenerationResponse } from '@/models/content';
-import React, { useEffect, useState } from 'react'; // Assuming you are calling generateContent here
+import { ContentGenerationResponse } from '@/models/content'
+import { platformLabel } from '@/lib/platforms'
 
 interface ContentPreviewProps {
-  data: ContentGenerationResponse;
+  data: ContentGenerationResponse
 }
 
-const ContentPreviewComponent: React.FC<ContentPreviewProps> = ({ data }) => {
-
+/**
+ * Read-only preview of the AI output, one card per platform.
+ */
+const ContentPreviewComponent = ({ data }: ContentPreviewProps) => {
   return (
-    <div className="content-preview">
-      <h2>{data.name}</h2>
-      <p>{data.description}</p>
-
-      <div className="platform-posts">
-        {Object.keys(data.platform_posts).map((platform) => {
-          const platformPost = data.platform_posts[platform];
-          return (
-            <div key={platform} className="platform-post">
-              <h3>{platform}</h3>
-              {platformPost.image_suggestion && (
-                <div>
-                  <strong>Image Suggestion:</strong> <p>{platformPost.image_suggestion}</p>
-                </div>
-              )}
-              {platformPost.video_suggestion && (
-                <div>
-                  <strong>Video Suggestion:</strong> <p>{platformPost.video_suggestion}</p>
-                </div>
-              )}
-              {platformPost.post && (
-                <div>
-                  <strong>Post:</strong> <p>{platformPost.post}</p>
-                </div>
-              )}
-              {platformPost.caption && (
-                <div>
-                  <strong>Caption:</strong> <p>{platformPost.caption}</p>
-                </div>
-              )}
-              {platformPost.hashtags && platformPost.hashtags.length > 0 && (
-                <div>
-                  <strong>Hashtags:</strong> <p>{platformPost.hashtags.join(', ')}</p>
-                </div>
-              )}
-              {platformPost.emojis && platformPost.emojis.length > 0 && (
-                <div>
-                  <strong>Emojis:</strong> <p>{platformPost.emojis.join(' ')}</p>
-                </div>
-              )}
-              {platformPost.call_to_action && (
-                <div>
-                  <strong>Call to Action:</strong> <p>{platformPost.call_to_action}</p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold">{data.name}</h3>
+        {data.description && <p className="text-sm text-muted-foreground">{data.description}</p>}
       </div>
 
-      {data.additional_notes && (
-        <div className="additional-notes">
-          <strong>Additional Notes:</strong>
-          <p>{data.additional_notes}</p>
-        </div>
-      )}
+      <div className="grid gap-4 md:grid-cols-2">
+        {Object.entries(data.platform_posts).map(([platform, post]) => (
+          <div key={platform} className="rounded-lg border bg-card p-4 space-y-3 text-sm">
+            <h4 className="font-semibold">{platformLabel(platform)}</h4>
+            {(post.post || post.caption) && (
+              <p className="whitespace-pre-wrap leading-relaxed">{post.post || post.caption}</p>
+            )}
+            {post.call_to_action && (
+              <p>
+                <span className="font-medium">Call to action: </span>
+                {post.call_to_action}
+              </p>
+            )}
+            {post.hashtags && post.hashtags.length > 0 && (
+              <p className="text-primary">{post.hashtags.map((h) => `#${h}`).join(' ')}</p>
+            )}
+            {post.image_suggestion && (
+              <p className="text-muted-foreground">
+                <span className="font-medium">Image idea: </span>
+                {post.image_suggestion}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
-  );
-};
+  )
+}
 
-export default ContentPreviewComponent;
+export default ContentPreviewComponent

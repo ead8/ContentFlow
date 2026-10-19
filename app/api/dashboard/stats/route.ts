@@ -1,68 +1,51 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireUserId } from '@/lib/services/auth'
+import { getAnalyticsOverview } from '@/lib/services/analytics'
 import { apiError } from '@/lib/api/error'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * Dashboard KPI stats computed from the user's own data.
- * Shape matches what the dashboard components expect.
  */
 export async function GET() {
   try {
     const userId = await requireUserId()
-    const supabase = await createClient()
+    const supabase = createClient()
 
-    const { count: totalPosts } = await supabase
-      .from('content_posts')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
+    const overview = await getAnalyticsOverview()
 
-    const { data: platformMetrics } = await supabase
-      .from('platform_analytics')
-      .select('engagement_rate, total_impressions')
-      .eq('user_id', userId)
-
-    const rates = (platformMetrics || [])
-      .map((m) => Number(m.engagement_rate))
-      .filter((n) => !Number.isNaN(n))
-    const impressions = (platformMetrics || [])
-      .map((m) => Number(m.total_impressions))
-      .filter((n) => !Number.isNaN(n))
-
-    const engagementRate = rates.length
-      ? rates.reduce((a, b) => a + b, 0) / rates.length
-      : 0
-    const avgReach = impressions.length
-      ? impressions.reduce((a, b) => a + b, 0) / impressions.length
-      : 0
-
-    // Posts created per day over the last 7 days
+    // Posts created per day over the last 7 days (UTC days)
     const since = new Date()
-    since.setDate(since.getDate() - 6)
-    const { data: recentPosts } = await supabase
+    since.setUTCHours(0, 0, 0, 0)
+    since.setUTCDate(since.getUTCDate() - 6)
+
+    const { data: recentPosts, error } = await supabase
       .from('content_posts')
       .select('created_at')
       .eq('user_id', userId)
       .gte('created_at', since.toISOString())
 
+    if (error) throw error
+
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     const weeklyData = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (6 - i))
+      const d = new Date(since)
+      d.setUTCDate(since.getUTCDate() + i)
       const key = d.toISOString().slice(0, 10)
-      const value = (recentPosts || []).filter((p) =>
-        p.created_at.slice(0, 10) === key
-      ).length
-      return { name: dayNames[d.getDay()], value }
+      const value = (recentPosts || []).filter((p) => p.created_at.slice(0, 10) === key).length
+      return { name: dayNames[d.getUTCDay()], value }
     })
 
     return NextResponse.json({
       success: true,
       data: {
-        totalPosts: totalPosts || 0,
-        engagementRate: Math.round(engagementRate * 100) / 100,
-        avgReach: Math.round(avgReach),
-        videoViews: 0,
+        totalPosts: overview.post_counts.total,
+        scheduledPosts: overview.post_counts.scheduled,
+        publishedPosts: overview.post_counts.published,
+        engagementRate: overview.engagement_rate,
+        impressions: overview.totals.impressions,
         weeklyData,
       },
     })

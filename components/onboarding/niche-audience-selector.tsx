@@ -67,7 +67,7 @@ export default function NicheAudienceForm({
               placeholder="Describe your target audience"
               rows={3}
             />
-            <div className="absolute bottom-2 right-3 text-sm text-gray-500 bg-white px-1">
+            <div className="absolute bottom-2 right-3 text-sm text-muted-foreground bg-background px-1">
               {audienceCharCount}/{maxAudienceChars}
             </div>
           </div>

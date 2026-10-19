@@ -1,80 +1,76 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { X } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WizardFormData } from './MultiStep';
 import CampaignContentTab from './CampaignContentTab';
 
 interface PreviewPostDataProps {
   data: WizardFormData;
   onUpdate: (platform: string, field: string, value: string | string[]) => void;
+  onCampaignUpdate: (field: 'name' | 'description', value: string) => void;
 }
 
-export default function PreviewPostData({ data, onUpdate }: PreviewPostDataProps) {
+/**
+ * Final review: edit the campaign title and each platform's copy, and see
+ * the attached media.
+ */
+export default function PreviewPostData({ data, onUpdate, onCampaignUpdate }: PreviewPostDataProps) {
+  const image = data.step_2?.image_upload;
+  const video = data.step_3?.video_url;
+
   return (
     <div className="space-y-6">
-      <Accordion type="multiple" className="w-full">
-        {/* Campaign Content */}
-        <AccordionItem value="step1">
-          <AccordionTrigger>📝 Campaign Content</AccordionTrigger>
-          <AccordionContent className="p-5 bg-white rounded-lg border shadow-sm space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-primary">{data?.step_1?.name}</h3>
-              <p className="text-gray-600">{data?.step_1?.description}</p>
-            </div>
-            {/* Platform Tabs */}
-            <CampaignContentTab data={data} onUpdate={onUpdate}/>
-          </AccordionContent>
-        </AccordionItem>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Campaign</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="campaign-name">Title</Label>
+            <Input
+              id="campaign-name"
+              value={data.step_1?.name || ''}
+              onChange={(e) => onCampaignUpdate('name', e.target.value)}
+              maxLength={300}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="campaign-description">Summary</Label>
+            <Textarea
+              id="campaign-description"
+              value={data.step_1?.description || ''}
+              onChange={(e) => onCampaignUpdate('description', e.target.value)}
+              maxLength={2000}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Image Upload */}
-        <AccordionItem value="step2">
-          <AccordionTrigger>🖼️ Image Upload</AccordionTrigger>
-          <AccordionContent className="p-5 bg-white rounded-lg border shadow-sm space-y-4">
-            <p>
-              <strong>Image Source:</strong> {data.step_2?.image_source}
-            </p>
-            <p>
-              <strong>Image Prompt:</strong> {data.step_2?.prompt}
-            </p>
-            {data.step_2?.image_upload && (
-              <img
-                src={data.step_2.image_upload}
-                alt="Uploaded"
-                className="rounded-md border w-full max-w-sm mt-2"
-              />
-            )}
-          </AccordionContent>
-        </AccordionItem>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Platform copy</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CampaignContentTab posts={data.step_1?.platform_posts || {}} onUpdate={onUpdate} />
+        </CardContent>
+      </Card>
 
-        {/* Video Generation */}
-        <AccordionItem value="step3">
-          <AccordionTrigger>🎬 Video Generation</AccordionTrigger>
-          <AccordionContent className="p-5 bg-white rounded-lg border shadow-sm space-y-4">
-            <p>
-              <strong>Video Prompt:</strong> {data.step_3?.video_prompt}
-            </p>
-            {data.step_3?.video_url && (
-              <video
-                controls
-                className="w-full max-w-md border rounded-md mt-2"
-                src={data.step_3.video_url}
-              />
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Media</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!image && !video && <p className="text-sm text-muted-foreground">No media attached.</p>}
+          {image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt="Post image" className="w-full max-w-sm rounded-md border" />
+          )}
+          {video && <video controls src={video} className="w-full max-w-md rounded-md border" />}
+        </CardContent>
+      </Card>
     </div>
   );
 }

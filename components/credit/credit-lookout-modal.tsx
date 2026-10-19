@@ -1,73 +1,43 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import Link from 'next/link'
+import { Coins } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import Image from 'next/image'
-
 
 interface CreditLockoutModalProps {
   isOpen: boolean
   onClose: () => void
-  usedCredits: number
-  totalCredits: number
-  onUpgradeClick?: () => void
+  /** Current balance */
+  credits: number
+  /** Cost of the action the user tried */
+  cost: number
 }
 
-const CreditLockoutModal = ({
-  isOpen,
-  onClose,
-  usedCredits,
-  totalCredits,
-  onUpgradeClick,
-}: CreditLockoutModalProps) => {
+/**
+ * Shown when an AI action costs more credits than the user has left.
+ */
+const CreditLockoutModal = ({ isOpen, onClose, credits, cost }: CreditLockoutModalProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>      <DialogContent className="sm:max-w-md">        <div className="flex flex-col items-center text-center p-4">
-          {/* Warning Icon */}
-          <div className="w-16 h-16 bg-[#FFC107] rounded-full flex items-center justify-center mb-6">
-            <span className="text-4xl font-bold text-white">!</span>
-          </div>          {/* Credits Display */}
-          <div className="flex items-center mb-4">
-            <div className="mr-2">
-              <Image 
-                src="/images/icons/credit.svg"
-                alt="Credit Icon"
-                width={26}
-                height={26}
-              />
-            </div>
-            <span className="inline-flex items-center">
-              <span className="text-[32px] font-semibold text-[#339DFF]">
-                {/* {usedCredits} */}
-                0
-              </span>
-            </span>
-            <span className="text-gray-600">/</span>
-            <span className="text-[#828282]">{totalCredits}</span>
-            <span className="text-xl font-semibold ml-2">No Credits Available</span>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="items-center text-center">
+          <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15">
+            <Coins className="h-7 w-7 text-amber-500" />
           </div>
-
-          {/* Message */}
-          <p className="text-gray-600 mb-6">
-            You don&apos;t have credit balance left to create a post.<br />
-            Please upgrade to enjoy using services.
-          </p>
-
-          {/* Buttons */}
-          <div className="flex gap-4 w-full max-w-xs">
-            <Button 
-              variant="outline" 
-              className="flex-1  border-[#339DFF] text-[#339DFF] font-medium text-base" 
-              onClick={onClose}
-            >
-              Do it Later
-            </Button>
-            <Button 
-              className="flex-1 bg-[#2F80ED]" 
-              onClick={onUpgradeClick}
-            >
-              Upgrade
-            </Button>
-          </div>
+          <DialogTitle>Not enough credits</DialogTitle>
+          <DialogDescription>
+            This action costs {cost} credits and you have {credits} left. Upgrade your plan to get
+            more credits every month.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-2 flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Not now
+          </Button>
+          <Button asChild className="flex-1">
+            <Link href="/billing">See plans</Link>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

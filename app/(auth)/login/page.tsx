@@ -1,14 +1,14 @@
-"use client"
-
+import { Suspense } from "react"
 import LoginForm from "@/components/auth/login_form"
 
-const LoginPage = () =>{
+export const metadata = { title: "Sign in" }
 
+export default function Page() {
   return (
     <div className="flex items-center justify-center">
-      <LoginForm/>
+      <Suspense>
+        <LoginForm />
+      </Suspense>
     </div>
   )
 }
-
-export default LoginPage

@@ -1,0 +1,3 @@
+-- Local development seed data.
+-- Intentionally empty: create test users through the sign-up page so the
+-- normal auth triggers (profile + usage rows) run.

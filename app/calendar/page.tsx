@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CalendarDays, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ export default function CalendarPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState("")
   const [newDesc, setNewDesc] = useState("")
+  const [newTime, setNewTime] = useState("09:00")
   const [saving, setSaving] = useState(false)
 
   const range = useMemo(() => {
@@ -50,19 +52,20 @@ export default function CalendarPage() {
     return { start, end }
   }, [cursor])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const [evts, posts] = await Promise.all([
         api<any[]>(`/api/calendar?type=range&startDate=${range.start.toISOString()}&endDate=${range.end.toISOString()}`),
-        api<any[]>(`/api/posts?limit=100`),
+        api<any[]>(`/api/posts?limit=200`),
       ])
       const items: CalEvent[] = (evts || []).map((e: any) => ({ ...e, kind: "event" as const }))
       for (const p of posts || []) {
-        if (p.scheduled_for) {
+        const date = p.status === "published" ? p.published_at : p.scheduled_for
+        if (date) {
           items.push({
             id: p.id, title: p.title || "Scheduled post", description: p.content?.slice(0, 80) || null,
-            event_date: p.scheduled_for, event_type: "post", status: p.status, post_id: p.id, kind: "post" as const,
+            event_date: date, event_type: "post", status: p.status, post_id: p.id, kind: "post" as const,
           })
         }
       }
@@ -72,9 +75,9 @@ export default function CalendarPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [range, toast])
 
-  useEffect(() => { load() }, [cursor])
+  useEffect(() => { load() }, [load])
 
   const days = useMemo(() => {
     const first = startOfMonth(cursor)
@@ -103,8 +106,14 @@ export default function CalendarPage() {
         body: JSON.stringify({
           title: newTitle.trim(),
           description: newDesc.trim() || undefined,
-          eventDate: selectedDay.toISOString(),
-          eventType: "post",
+          eventDate: (() => {
+            const [h, m] = newTime.split(":").map(Number)
+            const d = new Date(selectedDay)
+            d.setHours(h || 0, m || 0, 0, 0)
+            return d.toISOString()
+          })(),
+          eventType: "reminder",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       })
       setNewTitle(""); setNewDesc(""); setShowCreate(false)
@@ -118,10 +127,6 @@ export default function CalendarPage() {
   }
 
   const handleDelete = async (ev: CalEvent) => {
-    if (ev.kind === "post") {
-      toast({ title: "Scheduled post", description: "Edit or delete it from the Posts page." })
-      return
-    }
     try {
       await api(`/api/calendar?id=${ev.id}`, { method: "DELETE" })
       toast({ title: "Event deleted" })
@@ -134,7 +139,7 @@ export default function CalendarPage() {
   const monthLabel = cursor.toLocaleString("en-US", { month: "long", year: "numeric" })
 
   return (
-    <main className="mx-auto max-w-6xl py-6 px-4 min-h-screen">
+    <div className="mx-auto max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Content Calendar</h1>
@@ -184,7 +189,7 @@ export default function CalendarPage() {
                       <div className="space-y-0.5">
                         {items.slice(0, 3).map((e) => (
                           <div key={e.id} className={`truncate text-[10px] px-1 py-0.5 rounded ${
-                            e.kind === "post" ? "bg-blue-100 text-blue-800" : "bg-violet-100 text-violet-800"
+                            e.kind === "post" ? "bg-blue-500/15 text-blue-800 dark:text-blue-200" : "bg-violet-500/15 text-violet-800 dark:text-violet-200"
                           }`} title={e.title}>{e.title}</div>
                         ))}
                         {items.length > 3 && <div className="text-[10px] text-muted-foreground">+{items.length - 3} more</div>}
@@ -194,7 +199,7 @@ export default function CalendarPage() {
                 })}
               </div>
               <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-blue-200 inline-block" /> Scheduled post</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-blue-200 inline-block" /> Post</span>
                 <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-violet-200 inline-block" /> Planned event</span>
               </div>
             </CardContent>
@@ -212,14 +217,18 @@ export default function CalendarPage() {
               {selectedEvents.map((e) => (
                 <div key={e.id} className="flex items-start justify-between gap-2 rounded-lg border p-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{e.title}</div>
+                    {e.kind === "post" ? (
+                      <Link href={`/posts/${e.post_id}`} className="block truncate text-sm font-medium hover:underline">{e.title}</Link>
+                    ) : (
+                      <div className="text-sm font-medium truncate">{e.title}</div>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {new Date(e.event_date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                      {" · "}{e.kind === "post" ? "Scheduled post" : e.event_type}
+                      {" · "}{e.kind === "post" ? (e.status === "published" ? "Published post" : "Scheduled post") : e.event_type}
                     </div>
                   </div>
                   {e.kind === "event" && (
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(e)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(e)} aria-label="Delete event">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
@@ -241,6 +250,7 @@ export default function CalendarPage() {
                   </div>
                   <Input placeholder="Event title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
                   <Input placeholder="Description (optional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
+                  <Input type="time" aria-label="Event time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
                   <Button className="w-full" onClick={handleCreate} disabled={saving || !newTitle.trim()}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Save event
                   </Button>
@@ -250,6 +260,6 @@ export default function CalendarPage() {
           </Card>
         </div>
       )}
-    </main>
+    </div>
   )
 }

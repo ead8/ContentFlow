@@ -53,7 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
               <div>
                 <p className="text-white font-medium text-sm">Schedule Across Platforms</p>
-                <p className="text-accent/70 text-xs mt-1">Publish simultaneously to LinkedIn, Instagram, X, and more</p>
+                <p className="text-accent/70 text-xs mt-1">Plan posts for LinkedIn, Instagram, X and more on one calendar</p>
               </div>
             </div>
 
@@ -63,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
               <div>
                 <p className="text-white font-medium text-sm">Measure What Matters</p>
-                <p className="text-accent/70 text-xs mt-1">Real-time analytics on engagement and audience growth</p>
+                <p className="text-accent/70 text-xs mt-1">Track engagement for every post you publish</p>
               </div>
             </div>
           </div>
@@ -71,7 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* Tagline */}
           <div className="pt-8 border-t border-accent/20">
             <p className="text-accent/80 text-xs leading-relaxed font-light">
-              Transform your social media strategy with AI-powered content creation, intelligent scheduling, and deep analytics insights.
+              Plan, write and track your social content in one place.
             </p>
           </div>
         </div>

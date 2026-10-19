@@ -2,6 +2,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui";
 import { BrainCircuit } from "lucide-react";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from '@/lib/site'
 
 export default function TermsPage() {
   return (
@@ -10,7 +11,7 @@ export default function TermsPage() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-xl">
             <BrainCircuit className="h-6 w-6 text-primary" />
-            <span>Intuity Sync</span>
+            <span>ContentFlow</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -122,8 +123,7 @@ export default function TermsPage() {
 
         <Section title="DMCA Notice">
             <p>
-            If you believe any content infringes your copyright, please contact 📧 <a
-                href="mailto:Griffin@intuityai.com" className="text-blue-600 underline">Griffin@intuityai.com</a>. We
+            If you believe any content infringes your copyright, please contact 📧 {SUPPORT_EMAIL ? <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 underline">{SUPPORT_EMAIL}</a> : "our support team"}. We
             will respond in accordance with the DMCA.
             </p>
         </Section>
@@ -138,7 +138,7 @@ export default function TermsPage() {
         <Section title="Changes">
             <p>
             We may revise these Terms at any time, with updates posted on this page. If you have questions, contact us
-            at 📧 <a href="mailto:Griffin@intuityai.com" className="text-blue-600 underline">Griffin@intuityai.com</a>.
+            at {SUPPORT_EMAIL ? <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 underline">{SUPPORT_EMAIL}</a> : "our support team"}.
             </p>
         </Section>
         </div>
@@ -146,7 +146,7 @@ export default function TermsPage() {
       <footer className="border-t py-6 md:py-0">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 md:h-16">
           <p className="text-sm text-muted-foreground">
-            © 2025 Intuity Sync. All rights reserved.
+            © {new Date().getFullYear()} ContentFlow. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">

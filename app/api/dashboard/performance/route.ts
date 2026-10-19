@@ -3,17 +3,19 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUserId } from '@/lib/services/auth'
 import { apiError } from '@/lib/api/error'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Recent posts with per-post engagement, for the Post Performance widget.
  */
 export async function GET() {
   try {
     const userId = await requireUserId()
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { data: posts, error } = await supabase
       .from('content_posts')
-      .select('id, title, content, status, media_urls, created_at')
+      .select('id, title, content, status, media_urls, platforms, scheduled_for, published_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5)
@@ -22,24 +24,12 @@ export async function GET() {
 
     const postIds = (posts || []).map((p) => p.id)
 
-    const { data: targets } = postIds.length
-      ? await supabase
-          .from('post_targets')
-          .select('post_id, platform')
-          .in('post_id', postIds)
-      : { data: [] }
-
     const { data: analytics } = postIds.length
       ? await supabase
           .from('post_analytics')
           .select('post_id, engagement_type, count')
           .in('post_id', postIds)
       : { data: [] }
-
-    const platformByPost = new Map<string, string>()
-    for (const t of targets || []) {
-      if (!platformByPost.has(t.post_id)) platformByPost.set(t.post_id, t.platform)
-    }
 
     const engagementByPost = new Map<string, { likes: number; comments: number; reach: number }>()
     for (const a of analytics || []) {
@@ -50,13 +40,15 @@ export async function GET() {
       engagementByPost.set(a.post_id, agg)
     }
 
+    const isImage = (url: string) => !/\.(mp4|mov|webm)(\?|$)/i.test(url)
+
     const data = (posts || []).map((p) => ({
       id: p.id,
-      thumbnail: p.media_urls?.[0] || '/images/post-placeholder.svg',
+      thumbnail: p.media_urls?.find(isImage) || '/images/post-placeholder.svg',
       title: p.title || p.content.slice(0, 60),
       status: p.status === 'published' ? 'posted' : p.status,
-      platform: platformByPost.get(p.id) || '—',
-      date: p.created_at,
+      platforms: p.platforms || [],
+      date: p.published_at || p.scheduled_for || p.created_at,
       engagement: engagementByPost.get(p.id),
     }))
 

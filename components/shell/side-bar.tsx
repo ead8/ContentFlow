@@ -1,8 +1,10 @@
 "use client"
+
 import Link from "next/link"
-import { Plus, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Sparkles } from "lucide-react"
+import { Plus, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { ACCOUNT_NAV, MAIN_NAV, NavList } from "./nav-items"
 
 interface SidebarProps {
   className?: string
@@ -10,72 +12,37 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   return (
-    <div className={cn("hidden h-screen w-64 bg-card border-r border-border md:sticky md:top-0 md:flex md:flex-col py-6", className)}>
-      {/* Logo */}
-      <div className="flex h-16 items-center px-6 mb-8">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
+    <aside
+      className={cn(
+        "hidden h-screen w-64 shrink-0 border-r border-border bg-card py-6 md:sticky md:top-0 md:flex md:flex-col",
+        className
+      )}
+    >
+      <div className="mb-6 flex h-12 items-center px-6">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
             <Sparkles className="h-5 w-5 text-accent-foreground" />
           </div>
-          <span className="font-bold text-lg text-foreground">ContentFlow</span>
+          <span className="text-lg font-bold text-foreground">ContentFlow</span>
         </Link>
       </div>
 
-      {/* Create Post Button */}
-      <div className="px-4 mb-6">
-        <Link href={'/generate'}>
-          <Button className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10">
+      <div className="mb-6 px-4">
+        <Button asChild className="h-10 w-full justify-start gap-2">
+          <Link href="/generate">
             <Plus className="h-4 w-4" />
             Create Post
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3">
-        <ul className="space-y-1">
-          <NavItem 
-            href="/dashboard" 
-            icon={<LayoutDashboard className="h-4 w-4" />} 
-            label="Dashboard" 
-          />
-          <NavItem 
-            href="/posts" 
-            icon={<FileText className="h-4 w-4" />} 
-            label="My Posts" 
-          />
-          <NavItem 
-            href="/calendar" 
-            icon={<Calendar className="h-4 w-4" />} 
-            label="Calendar" 
-          />
-          <NavItem 
-            href="/analytics" 
-            icon={<BarChart3 className="h-4 w-4" />} 
-            label="Analytics" 
-          />
-        </ul>
+      <nav className="flex-1 px-3" aria-label="Main">
+        <NavList items={MAIN_NAV} />
       </nav>
 
-      {/* Settings at Bottom */}
-      <div className="px-3 pt-6 border-t border-border">
-        <NavItem 
-          href="/settings" 
-          icon={<Settings className="h-4 w-4" />} 
-          label="Settings" 
-        />
-      </div>
-    </div>
-  )
-}
-
-function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
-  return (
-    <li>
-      <Link href={href} className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent/10 hover:text-accent transition-colors">
-        {icon}
-        {label}
-      </Link>
-    </li>
+      <nav className="border-t border-border px-3 pt-4" aria-label="Account">
+        <NavList items={ACCOUNT_NAV} />
+      </nav>
+    </aside>
   )
 }

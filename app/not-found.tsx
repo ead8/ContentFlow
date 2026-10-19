@@ -1,14 +1,15 @@
-// app/not-found.tsx
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 export default function NotFound() {
   return (
-    <div style={{ textAlign: 'center', marginTop: '5rem', padding: '0 1rem' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Oops! Page not found.</h1>
-      <p style={{ marginBottom: '1.5rem' }}>Looks like we can’t find what you’re looking for.</p>
-      <Link href="/">
-        <p style={{ color: '#0070f3', textDecoration: 'underline' }}>Return to Home</p>
-      </Link>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+      <p className="text-sm font-medium text-muted-foreground">404</p>
+      <h1 className="text-3xl font-bold">Page not found</h1>
+      <p className="text-muted-foreground">The page you&apos;re looking for doesn&apos;t exist or has moved.</p>
+      <Button asChild>
+        <Link href="/">Go home</Link>
+      </Button>
+    </main>
   )
 }

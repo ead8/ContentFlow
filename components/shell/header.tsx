@@ -1,7 +1,9 @@
 "use client"
 
+import { FormEvent, useEffect, useState } from "react"
 import Link from "next/link"
-import { Bell, LogOut, Menu, Search, Settings, User } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Bell, CreditCard, LogOut, Menu, Search, Settings, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -9,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -17,102 +20,138 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { MobileSidebar } from "./mobile-sidebar"
 import { useAuth } from "../auth-provider"
 import { CreditsBadge } from "../credit/credits-badge"
+import { fetchNotifications, type AppNotification } from "@/lib/api/client"
+import { getPlan } from "@/lib/billing/plans"
 
-interface HeaderProps {
-  isSidebarOpen: boolean
-  onToggleSidebar: () => void
-}
+function Notifications() {
+  const pathname = usePathname()
+  const [items, setItems] = useState<AppNotification[]>([])
 
-export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
-    const { user, signOut} = useAuth()
-  // Placeholder user data - replace with your actual user data
-  
+  // Refresh on navigation so due posts show up without a reload
+  useEffect(() => {
+    fetchNotifications().then(setItems).catch(() => setItems([]))
+  }, [pathname])
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 md:px-6">
-      <div className="flex items-center gap-4 flex-1">
-        {/* Mobile hamburger with Sheet */}
-        <Sheet>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative h-9 w-9" aria-label={`Notifications (${items.length})`}>
+          <Bell className="h-4 w-4" />
+          {items.length > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+              {items.length}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {items.length === 0 ? (
+          <p className="px-2 py-6 text-center text-sm text-muted-foreground">You&apos;re all caught up.</p>
+        ) : (
+          items.map((n) => (
+            <DropdownMenuItem key={n.id} asChild>
+              <Link href={n.href} className="flex cursor-pointer flex-col items-start gap-0.5">
+                <span className="text-sm font-medium">{n.title}</span>
+                <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span>
+              </Link>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+export function Header() {
+  const { user, signOut } = useAuth()
+  const router = useRouter()
+  const [query, setQuery] = useState("")
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault()
+    const q = query.trim()
+    router.push(q ? `/posts?q=${encodeURIComponent(q)}` : "/posts")
+  }
+
+  const initial = (user?.fullName || user?.email || "U").charAt(0).toUpperCase()
+
+  return (
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
+      <div className="flex flex-1 items-center gap-4">
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
+            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <MobileSidebar />
+          <MobileSidebar onNavigate={() => setMenuOpen(false)} />
         </Sheet>
 
-        <div className="relative w-full max-w-md hidden sm:block">
+        <form onSubmit={onSearch} role="search" className="relative hidden w-full max-w-md sm:block">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search posts, analytics..."
-            className="w-full bg-muted pl-9 h-9 rounded-lg border-0 focus-visible:ring-1 focus-visible:ring-accent"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your posts..."
+            aria-label="Search your posts"
+            className="h-9 w-full rounded-lg border-0 bg-muted pl-9 focus-visible:ring-1 focus-visible:ring-accent"
           />
-        </div>
+        </form>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <CreditsBadge />
-        <Button size="sm" className="hidden sm:flex gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-          Upgrade
-        </Button>
-        
-        <div className="relative">
-          <Button variant="ghost" size="icon" className="relative h-9 w-9">
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-destructive"></span>
+        {user?.plan === "free" && (
+          <Button asChild size="sm" className="hidden sm:flex">
+            <Link href="/billing">Upgrade</Link>
           </Button>
-        </div>
+        )}
 
-        <div className="flex items-center gap-1">
-          <ModeToggle />
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="flex items-center justify-start gap-3 p-3 border-b border-border">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col space-y-1 leading-tight">
-                  <p className="font-medium text-sm text-foreground">{user?.email}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{user?.role} plan</p>
-                </div>
-              </div>
-              <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="cursor-pointer flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
-                onClick={() => signOut()}
-              >
-                <LogOut className="h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <Notifications />
+        <ModeToggle />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Account menu">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-accent font-semibold text-accent-foreground">{initial}</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-60">
+            <div className="flex flex-col gap-0.5 border-b border-border p-3">
+              <p className="truncate text-sm font-medium">{user?.fullName || user?.email}</p>
+              {user?.fullName && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+              <p className="text-xs text-muted-foreground">{getPlan(user?.plan).name} plan</p>
+            </div>
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex cursor-pointer items-center gap-2">
+                <User className="h-4 w-4" /> Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/billing" className="flex cursor-pointer items-center gap-2">
+                <CreditCard className="h-4 w-4" /> Plans & Billing
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex cursor-pointer items-center gap-2">
+                <Settings className="h-4 w-4" /> Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2 text-destructive focus:text-destructive"
+              onClick={() => signOut()}
+            >
+              <LogOut className="h-4 w-4" /> Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

@@ -11,7 +11,7 @@ import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { Star } from 'lucide-react'
 import clsx from 'clsx'
-import { addFeedback } from '@/lib/n8n/client'
+import { addFeedback } from '@/lib/api/client'
 import { useToast } from '@/hooks/use-toast'
 
 import { z } from 'zod'

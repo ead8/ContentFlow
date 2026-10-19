@@ -1,53 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateImageUrl } from '@/lib/ai/openai'
-import { deductCredits } from '@/lib/services/credits'
+import { randomUUID } from 'crypto'
+import { generateImage } from '@/lib/ai/openai'
+import { assertCanAfford, spendCredits } from '@/lib/services/credits'
 import { requireUserId } from '@/lib/services/auth'
 import { createClient } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api/error'
 
-const CREDIT_COST = 25
+export const dynamic = 'force-dynamic'
+
+// Image providers can take a while
+export const maxDuration = 60
 
 /**
- * Generate an image with AI.
+ * Generate an image with AI and store it in the user's media folder.
  * Body: { prompt: string }
  */
 export async function POST(request: NextRequest) {
   try {
     const userId = await requireUserId()
 
-    const body = await request.json()
+    const body = await request.json().catch(() => ({}))
     const { prompt } = body
 
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
+    if (typeof prompt !== 'string' || prompt.trim().length < 5 || prompt.length > 1000) {
       return NextResponse.json(
-        { success: false, error: 'Prompt must be at least 5 characters' },
+        { success: false, error: 'Prompt must be between 5 and 1000 characters' },
         { status: 400 }
       )
     }
 
-    const imageUrl = await generateImageUrl(prompt.trim())
+    await assertCanAfford('image')
 
-    // Charge only after successful generation, and track pool usage
-    await deductCredits(CREDIT_COST, 'AI image generation')
+    const image = await generateImage(prompt.trim())
 
-    const supabase = await createClient()
-    const { data: usage } = await supabase
-      .from('usage')
-      .select('image_credits_used')
-      .eq('user_id', userId)
-      .single()
+    // Provider URLs expire (e.g. DALL-E links last ~1 hour), so keep our own copy
+    const supabase = createClient()
+    const path = `${userId}/generated/${randomUUID()}.${image.extension}`
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(path, image.bytes, { contentType: image.contentType, upsert: false })
 
-    if (usage) {
-      await supabase
-        .from('usage')
-        .update({
-          image_credits_used: (usage.image_credits_used || 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-    }
+    if (uploadError) throw new Error(`Could not store generated image: ${uploadError.message}`)
 
-    return NextResponse.json({ success: true, data: { image_url: imageUrl } })
+    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+
+    // Charge only after the image exists
+    await spendCredits('image', 'AI image generation')
+
+    return NextResponse.json({ success: true, data: { image_url: publicUrl } })
   } catch (error) {
     return apiError(error, 'Error generating image')
   }

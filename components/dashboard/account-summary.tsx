@@ -1,141 +1,86 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { Settings, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Settings, Users, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import { fetchAccountSummary } from "@/lib/n8n/client"
-
-interface Platform {
-  name: string
-  status: "connected" | "disconnected"
-  profile?: string
-  lastSync?: string
-}
-
-interface TeamMember {
-  id: string
-  name: string
-  initials: string
-  role: string
-}
-
-interface Subscription {
-  upgradeAvailable?: boolean
-}
-
-interface AccountData {
-  platforms: Platform[]
-  teamMembers: TeamMember[]
-  subscription: Subscription
-}
+import { fetchAccountSummary, type AccountSummaryData } from "@/lib/api/client"
+import { platformLabel } from "@/lib/platforms"
 
 export function AccountSummary() {
-  const [accountData, setAccountData] = useState<AccountData>({
-    platforms: [],
-    teamMembers: [],
-    subscription: {}
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const [account, setAccount] = useState<AccountSummaryData | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadAccountData() {
-      try {
-        const data = await fetchAccountSummary()
-        setAccountData(data)
-      } catch (error) {
-        console.error('Failed to load account summary:')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadAccountData()
+    fetchAccountSummary()
+      .then(setAccount)
+      .catch((e) => setError(e.message))
   }, [])
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Account Overview</CardTitle>
+        <CardTitle>Account</CardTitle>
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/settings">
+          <Link href="/settings" aria-label="Settings">
             <Settings className="h-4 w-4" />
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div>
-          <h4 className="text-sm font-medium mb-3">Connected Platforms</h4>
-          <div className="space-y-2">
-            {accountData.platforms.map((platform) => (
-              <div
-                key={platform.name}
-                className="flex items-center justify-between p-2 rounded-md border"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    {platform.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{platform.name}</p>
-                    {platform.status === "connected" ? (
-                      <p className="text-xs text-muted-foreground">
-                        {platform.profile} • {platform.lastSync}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Not connected
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Badge
-                  variant={platform.status === "connected" ? "default" : "secondary"}
-                >
-                  {platform.status}
-                </Badge>
+      <CardContent className="space-y-5">
+        {error && <p className="text-sm text-muted-foreground">Unable to load account: {error}</p>}
+        {account && (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold">
+                {account.initials}
               </div>
-            ))}
-          </div>
-        </div>
-        
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium">Team Members</h4>
-            <Button variant="ghost" size="sm">
-              <Users className="h-4 w-4 mr-2" />
-              Invite
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {accountData.teamMembers.map((member) => (
-              <div key={member.id} className="flex items-center gap-2 p-2 rounded-md border">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  {member.initials}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{member.name}</p>
-                  <p className="text-xs text-muted-foreground">{member.role}</p>
-                </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{account.name}</p>
+                <p className="text-xs text-muted-foreground">{account.plan.name} plan</p>
               </div>
-            ))}
-          </div>
-        </div>
-        
-        {accountData.subscription?.upgradeAvailable && (
-          <div className="rounded-md bg-yellow-500/10 p-3 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-yellow-500">
-                Upgrade Available
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Unlock more features with our Pro plan
-              </p>
             </div>
-          </div>
+
+            <div>
+              <h4 className="mb-2 text-sm font-medium">Your platforms</h4>
+              {account.platforms.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {account.platforms.map((p) => (
+                    <Badge key={p} variant="secondary">{platformLabel(p)}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  <Link href="/onboarding" className="text-primary underline-offset-4 hover:underline">
+                    Finish onboarding
+                  </Link>{" "}
+                  to tell us where you post.
+                </p>
+              )}
+            </div>
+
+            {account.niche && (
+              <div>
+                <h4 className="mb-1 text-sm font-medium">Niche</h4>
+                <p className="text-sm text-muted-foreground">{account.niche}</p>
+              </div>
+            )}
+
+            {account.upgradeAvailable && (
+              <Link
+                href="/billing"
+                className="flex items-start gap-2 rounded-md bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+              >
+                <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">Need more credits?</p>
+                  <p className="text-xs text-muted-foreground">Compare plans and upgrade any time.</p>
+                </div>
+              </Link>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
